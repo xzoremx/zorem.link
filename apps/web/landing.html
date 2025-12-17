@@ -1,0 +1,757 @@
+<html lang="en" class="dark"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zorem - Private Stories for Informal Partners</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&amp;family=JetBrains+Mono:wght@300;400&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<style>
+body { font-family: 'Inter', sans-serif; background-color: #050505; }
+.font-serif { font-family: 'Instrument Serif', serif; }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+/* Custom animations */
+@keyframes fadeUp {
+from { opacity: 0; transform: translateY(20px); }
+to { opacity: 1; transform: translateY(0); }
+}
+@keyframes float {
+0%, 100% { transform: translateY(0px); }
+50% { transform: translateY(-10px); }
+}
+@keyframes beam {
+0% { left: -100%; opacity: 0; }
+50% { opacity: 0.5; }
+100% { left: 100%; opacity: 0; }
+}
+@keyframes marquee {
+0% { transform: translateX(0); }
+100% { transform: translateX(-50%); }
+}
+@keyframes scanline {
+0% { transform: translateY(-100%); }
+100% { transform: translateY(100%); }
+}
+@keyframes pulse-ring {
+0% { transform: scale(0.8); opacity: 0.5; }
+100% { transform: scale(2); opacity: 0; }
+}
+@keyframes shimmer {
+0% { background-position: -200% 0; }
+100% { background-position: 200% 0; }
+}
+.animate-fade-up { animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-marquee { animation: marquee 40s linear infinite; }
+.animate-beam {
+position: absolute;
+top: 0;
+width: 60%;
+height: 100%;
+background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+transform: skewX(-20deg);
+animation: beam 4s infinite;
+pointer-events: none;
+}
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-500 { animation-delay: 0.5s; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.bg-grid {
+background-size: 50px 50px;
+background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+}
+.card-shine:hover::after {
+opacity: 1;
+}
+.card-shine::after {
+content: "";
+position: absolute;
+inset: 0;
+z-index: 1;
+background: radial-gradient(800px circle at var(--mouse-x) var(--mouse-y), rgba(255,255,255,0.06), transparent 40%);
+opacity: 0;
+transition: opacity 0.5s;
+pointer-events: none;
+}
+/* Glassmorphism utilities */
+.glass {
+background: rgba(20, 20, 22, 0.4);
+backdrop-filter: blur(12px);
+-webkit-backdrop-filter: blur(12px);
+border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.glass-input {
+background: rgba(255, 255, 255, 0.03);
+backdrop-filter: blur(20px);
+-webkit-backdrop-filter: blur(20px);
+border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.glass-input:focus {
+background: rgba(255, 255, 255, 0.05);
+border-color: rgba(255, 255, 255, 0.2);
+box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.05);
+}
+.code-input {
+letter-spacing: 0.5em;
+font-variant-numeric: tabular-nums;
+}
+.code-input::placeholder {
+letter-spacing: 0.2em;
+}
+</style>
+
+<script>
+tailwind.config = {
+theme: {
+extend: {}
+},
+plugins: [
+function({ addUtilities }) {
+const rotateXUtilities = {};
+const rotateYUtilities = {};
+const rotateZUtilities = {};
+const rotateValues = [0, 5, 10, 15, 20, 30, 45, 75];
+rotateValues.forEach((value) => {
+rotateXUtilities[`.rotate-x-${value}`] = {
+'--tw-rotate-x': `${value}deg`,
+transform: `
+translate3d(var(--tw-translate-x, 0), var(--tw-translate-y, 0), var(--tw-translate-z, 0))
+rotateX(var(--tw-rotate-x, 0))
+rotateY(var(--tw-rotate-y, 0))
+rotateZ(var(--tw-rotate-z, 0))
+skewX(var(--tw-skew-x, 0))
+skewY(var(--tw-skew-y, 0))
+scaleX(var(--tw-scale-x, 1))
+scaleY(var(--tw-scale-y, 1))
+`.replace(/\\s+/g, ' ').trim(),
+};
+if (value !== 0) {
+rotateXUtilities[`.-rotate-x-${value}`] = {
+'--tw-rotate-x': `-${value}deg`,
+transform: `
+translate3d(var(--tw-translate-x, 0), var(--tw-translate-y, 0), var(--tw-translate-z, 0))
+rotateX(var(--tw-rotate-x, 0))
+rotateY(var(--tw-rotate-y, 0))
+rotateZ(var(--tw-rotate-z, 0))
+skewX(var(--tw-skew-x, 0))
+skewY(var(--tw-skew-y, 0))
+scaleX(var(--tw-scale-x, 1))
+scaleY(var(--tw-scale-y, 1))
+`.replace(/\\s+/g, ' ').trim(),
+};
+}
+});
+rotateValues.forEach((value) => {
+rotateYUtilities[`.rotate-y-${value}`] = {
+'--tw-rotate-y': `${value}deg`,
+transform: `
+translate3d(var(--tw-translate-x, 0), var(--tw-translate-y, 0), var(--tw-translate-z, 0))
+rotateX(var(--tw-rotate-x, 0))
+rotateY(var(--tw-rotate-y, 0))
+rotateZ(var(--tw-rotate-z, 0))
+skewX(var(--tw-skew-x, 0))
+skewY(var(--tw-skew-y, 0))
+scaleX(var(--tw-scale-x, 1))
+scaleY(var(--tw-scale-y, 1))
+`.replace(/\\s+/g, ' ').trim(),
+};
+if (value !== 0) {
+rotateYUtilities[`.-rotate-y-${value}`] = {
+'--tw-rotate-y': `-${value}deg`,
+transform: `
+translate3d(var(--tw-translate-x, 0), var(--tw-translate-y, 0), var(--tw-translate-z, 0))
+rotateX(var(--tw-rotate-x, 0))
+rotateY(var(--tw-rotate-y, 0))
+rotateZ(var(--tw-rotate-z, 0))
+skewX(var(--tw-skew-x, 0))
+skewY(var(--tw-skew-y, 0))
+scaleX(var(--tw-scale-x, 1))
+scaleY(var(--tw-scale-y, 1))
+`.replace(/\\s+/g, ' ').trim(),
+};
+}
+});
+rotateValues.forEach((value) => {
+rotateZUtilities[`.rotate-z-${value}`] = {
+'--tw-rotate-z': `${value}deg`,
+transform: `
+translate3d(var(--tw-translate-x, 0), var(--tw-translate-y, 0), var(--tw-translate-z, 0))
+rotateX(var(--tw-rotate-x, 0))
+rotateY(var(--tw-rotate-y, 0))
+rotateZ(var(--tw-rotate-z, 0))
+skewX(var(--tw-skew-x, 0))
+skewY(var(--tw-skew-y, 0))
+scaleX(var(--tw-scale-x, 1))
+scaleY(var(--tw-scale-y, 1))
+`.replace(/\\s+/g, ' ').trim(),
+};
+if (value !== 0) {
+rotateZUtilities[`.-rotate-z-${value}`] = {
+'--tw-rotate-z': `-${value}deg`,
+transform: `
+translate3d(var(--tw-translate-x, 0), var(--tw-translate-y, 0), var(--tw-translate-z, 0))
+rotateX(var(--tw-rotate-x, 0))
+rotateY(var(--tw-rotate-y, 0))
+rotateZ(var(--tw-rotate-z, 0))
+skewX(var(--tw-skew-x, 0))
+skewY(var(--tw-skew-y, 0))
+scaleX(var(--tw-scale-x, 1))
+scaleY(var(--tw-scale-y, 1))
+`.replace(/\\s+/g, ' ').trim(),
+};
+}
+});
+const perspectiveUtilities = {
+".perspective-none": { perspective: "none" },
+".perspective-dramatic": { perspective: "100px" },
+".perspective-near": { perspective: "300px" },
+".perspective-normal": { perspective: "500px" },
+".perspective-midrange": { perspective: "800px" },
+".perspective-distant": { perspective: "1200px" },
+};
+const transformStyleUtilities = {
+".transform-style-preserve-3d": { "transform-style": "preserve-3d" },
+".transform-style-flat": { "transform-style": "flat" },
+};
+addUtilities({
+...rotateXUtilities,
+...rotateYUtilities,
+...rotateZUtilities,
+...perspectiveUtilities,
+...transformStyleUtilities,
+});
+}
+]
+};
+</script></head>
+<body class="bg-background antialiased selection:bg-white/20 selection:text-white overflow-x-hidden text-neutral-300">
+
+    <!-- Background Ambience -->
+    <div class="fixed inset-0 z-0 pointer-events-none">
+        <div class="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[80%] h-[600px] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] via-background to-background blur-[100px] opacity-50 from-violet-900/20"></div>
+        <div class="bg-grid absolute inset-0 opacity-60"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 border-b bg-background/80 backdrop-blur-xl transition-all duration-300 border-white/5">
+        <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                <div class="w-5 h-5 relative text-white">
+                    <div class="absolute inset-0 blur-sm opacity-50 bg-white"></div>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 relative z-10"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+                </div>
+                <span class="text-sm font-medium tracking-tight text-white">Zorem</span>
+            </div>
+
+            <div class="hidden md:flex items-center gap-8 text-[13px] font-medium text-neutral-400">
+                <a href="#features" class="transition-colors hover:text-white">Features</a>
+                <a href="#how-it-works" class="transition-colors hover:text-white">How it works</a>
+                <a href="#privacy" class="transition-colors hover:text-white">Privacy</a>
+                <a href="#pricing" class="transition-colors hover:text-white">Pricing</a>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <a href="#" class="text-[13px] font-medium transition-colors px-2 hidden sm:block text-neutral-400 hover:text-white">Sign in</a>
+                <button class="group relative px-4 py-1.5 rounded-full text-[13px] font-medium transition-all overflow-hidden bg-white text-black hover:bg-neutral-200">
+                    <span class="relative z-10 flex items-center gap-1">
+                        Create Room
+                    </span>
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent to-transparent -translate-x-full group-hover:animate-[beam_1s_infinite] via-white/50"></div>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <main class="flex flex-col text-center max-w-[90rem] z-10 mr-auto ml-auto pt-32 pr-4 pb-20 pl-4 relative items-center">
+        
+        <!-- Status Badge -->
+        <div class="animate-fade-up delay-100 mb-8">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border backdrop-blur-md shadow-[0_0_15px_-3px_rgba(255,255,255,0.1)] border-white/10 bg-white/5">
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-violet-400"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                </span>
+                <span class="text-[11px] font-medium tracking-wide uppercase text-neutral-300">Stories disappear. Memories stay.</span>
+            </div>
+        </div>
+
+        <!-- Main Heading -->
+        <h1 class="animate-fade-up delay-200 text-5xl md:text-7xl lg:text-8xl font-medium tracking-tighter leading-[0.95] mb-8 text-white">
+            Private Stories for<br>
+            <span class="font-serif italic opacity-80 font-light pr-2 text-neutral-400">informal partners.</span>
+        </h1>
+
+        <p class="animate-fade-up delay-300 text-base md:text-lg max-w-xl mx-auto leading-relaxed mb-10 font-light text-neutral-400">
+            Share ephemeral stories with a select few. No followers, no feed, no algorithm. Just a code and a moment that vanishes.
+        </p>
+
+        <!-- Join Room - Code Input (Primary CTA) -->
+        <div class="animate-fade-up delay-500 relative w-full max-w-2xl mx-auto mb-8">
+            <div class="glass rounded-2xl p-6 md:p-8">
+                <div class="flex flex-col md:flex-row gap-4 items-center">
+                    <div class="flex-1 w-full">
+                        <label class="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2 block text-left">Enter Room Code</label>
+                        <input 
+                            type="text" 
+                            placeholder="XXXXXX" 
+                            maxlength="6"
+                            class="w-full h-14 px-6 rounded-xl glass-input text-2xl font-mono text-center text-white placeholder:text-neutral-600 code-input outline-none transition-all uppercase"
+                        >
+                    </div>
+                    <button class="group relative h-14 px-8 rounded-xl font-medium text-sm transition-all overflow-hidden flex items-center gap-2 bg-white text-black hover:bg-neutral-200 w-full md:w-auto justify-center mt-2 md:mt-6">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                        <span class="relative z-10">Join Room</span>
+                        <div class="absolute inset-0 bg-gradient-to-r from-transparent to-transparent -translate-x-full group-hover:animate-[beam_0.5s_infinite] via-white/50"></div>
+                    </button>
+                </div>
+                
+                <div class="mt-6 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <span class="text-xs text-neutral-500">or start sharing your own stories</span>
+                    <button class="group relative h-10 px-6 rounded-full font-medium text-xs transition-all overflow-hidden flex items-center gap-2 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/5">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                        <span>Create Room</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visual Element -->
+        <div class="animate-fade-up delay-500 relative w-full max-w-3xl mx-auto perspective-[2000px] group mb-24">
+            <!-- Floating Story Cards -->
+            <div class="relative h-48 flex items-center justify-center">
+                <!-- Left floating card -->
+                <div class="absolute -left-4 md:left-12 top-4 w-20 h-32 md:w-24 md:h-40 rounded-xl border bg-[#0F0F11]/80 backdrop-blur-md animate-float border-white/10 overflow-hidden" style="animation-delay: 0.5s;">
+                    <div class="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-pink-500/20"></div>
+                    <div class="absolute bottom-2 left-2 right-2">
+                        <div class="h-1 w-8 bg-white/30 rounded-full mb-1"></div>
+                        <div class="h-1 w-5 bg-white/20 rounded-full"></div>
+                    </div>
+                </div>
+                
+                <!-- Center main card -->
+                <div class="relative w-28 h-44 md:w-32 md:h-52 rounded-2xl border bg-[#0F0F11] backdrop-blur-md animate-float border-white/10 overflow-hidden z-10 shadow-2xl" style="animation-delay: 1s;">
+                    <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
+                    <div class="absolute top-3 left-3 right-3 flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-full bg-gradient-to-br from-violet-400 to-pink-400"></div>
+                        <div class="h-1.5 w-12 bg-white/30 rounded-full"></div>
+                    </div>
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                        <svg class="w-8 h-8 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+                    </div>
+                    <div class="absolute bottom-3 left-3 right-3">
+                        <div class="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                            <div class="h-full w-2/3 bg-white/40 rounded-full"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right floating card -->
+                <div class="absolute -right-4 md:right-12 top-8 w-20 h-32 md:w-24 md:h-40 rounded-xl border bg-[#0F0F11]/80 backdrop-blur-md animate-float border-white/10 overflow-hidden" style="animation-delay: 1.5s;">
+                    <div class="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20"></div>
+                    <div class="absolute bottom-2 left-2 right-2">
+                        <div class="h-1 w-6 bg-white/30 rounded-full mb-1"></div>
+                        <div class="h-1 w-10 bg-white/20 rounded-full"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Floating elements -->
+            <div class="absolute -right-8 md:-right-12 top-0 w-24 h-24 rounded-xl border bg-[#0F0F11]/80 backdrop-blur-md p-3 animate-float border-white/5" style="animation-delay: 2s;">
+                <div class="w-full h-full flex flex-col justify-between opacity-60">
+                    <div class="flex items-center justify-between">
+                         <div class="text-[8px] text-neutral-400">Viewers</div>
+                         <div class="text-[8px] text-violet-400">12</div>
+                    </div>
+                    <div class="flex -space-x-1">
+                        <div class="w-4 h-4 rounded-full bg-gradient-to-br from-violet-400 to-pink-400 border border-black"></div>
+                        <div class="w-4 h-4 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 border border-black"></div>
+                        <div class="w-4 h-4 rounded-full bg-gradient-to-br from-emerald-400 to-teal-400 border border-black"></div>
+                        <div class="w-4 h-4 rounded-full bg-neutral-700 border border-black flex items-center justify-center text-[6px] text-white">+9</div>
+                    </div>
+                </div>
+            </div>
+            <div class="absolute -left-4 md:-left-8 bottom-0 w-32 h-12 rounded-xl border bg-[#0F0F11]/80 backdrop-blur-md p-2 animate-float flex items-center gap-3 border-white/5" style="animation-delay: 2.5s;">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center bg-neutral-800">
+                    <svg class="w-4 h-4 text-violet-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                </div>
+                <div class="flex flex-col">
+                     <span class="text-[10px] font-medium text-white">Private</span>
+                     <span class="text-[8px] text-neutral-500">End-to-end</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trust indicators -->
+        <div class="w-full max-w-4xl mx-auto overflow-hidden opacity-40 hover:opacity-80 transition-opacity duration-500">
+            <div class="flex items-center justify-center gap-8 md:gap-16 flex-wrap">
+                <div class="flex items-center gap-2 text-neutral-600">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    <span class="text-sm font-medium">End-to-end encrypted</span>
+                </div>
+                <div class="flex items-center gap-2 text-neutral-600">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+                    <span class="text-sm font-medium">Auto-destruct</span>
+                </div>
+                <div class="flex items-center gap-2 text-neutral-600">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    <span class="text-sm font-medium">No followers</span>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Features Bento Grid Section -->
+    <section id="features" class="py-20 px-6 max-w-7xl mx-auto relative">
+        <!-- Section Header -->
+        <div class="mb-16 flex flex-col md:flex-row items-start justify-between gap-8">
+            <div class="max-w-xl">
+                <h2 class="text-3xl md:text-4xl font-medium tracking-tight mb-4 text-white">Built for moments that <span class="font-serif italic opacity-80">matter.</span></h2>
+                <p class="text-sm md:text-base text-neutral-400">Not another social network. A private space for sharing stories with the people you choose.</p>
+            </div>
+            <div class="hidden md:block text-right">
+                <div class="text-xs font-mono text-neutral-500 mb-1">PRIVACY FIRST</div>
+                <div class="flex items-center justify-end gap-2 text-violet-500 text-xs font-medium">
+                    <div class="w-1.5 h-1.5 rounded-full bg-violet-500"></div>
+                    Zero data stored
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-6 auto-rows-[minmax(300px,auto)]">
+            
+            <!-- Card 1: Ephemeral Stories -->
+            <div class="md:col-span-3 lg:col-span-4 glass rounded-3xl p-8 relative overflow-hidden group card-shine flex flex-col justify-between">
+                <div class="relative z-10">
+                    <div class="w-10 h-10 rounded-lg border flex items-center justify-center mb-6 bg-white/5 border-white/10 text-white">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2 text-white">Ephemeral by Design</h3>
+                    <p class="text-sm leading-relaxed text-neutral-400">Stories auto-destruct after the time you set. No screenshots notifications, no permanence. Share freely.</p>
+                </div>
+                
+                <div class="absolute right-4 bottom-4 flex gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                    <div class="h-8 px-3 flex items-center justify-center rounded border border-violet-500/20 text-[10px] font-mono bg-violet-900/30 text-violet-400">24H MAX</div>
+                </div>
+            </div>
+
+            <!-- Card 2: Code Access -->
+            <div class="md:col-span-3 lg:col-span-8 glass rounded-3xl p-0 relative overflow-hidden group card-shine">
+                <div class="absolute inset-0 bg-grid opacity-20"></div>
+                
+                <div class="absolute inset-0 flex items-center justify-center z-0">
+                    <!-- Code Visual -->
+                    <div class="relative w-full h-full opacity-50 group-hover:opacity-100 transition-opacity duration-700 flex items-center justify-center">
+                        <div class="flex gap-3">
+                            <div class="w-14 h-20 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center text-3xl font-mono text-white">Z</div>
+                            <div class="w-14 h-20 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center text-3xl font-mono text-white">O</div>
+                            <div class="w-14 h-20 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center text-3xl font-mono text-white">R</div>
+                            <div class="w-14 h-20 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center text-3xl font-mono text-white">E</div>
+                            <div class="w-14 h-20 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center text-3xl font-mono text-white">M</div>
+                            <div class="w-14 h-20 rounded-lg border border-violet-500/30 bg-violet-500/10 flex items-center justify-center text-3xl font-mono text-violet-400 animate-pulse">_</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-background to-transparent z-10">
+                    <h3 class="text-xl font-medium mb-2 text-white">Access by Code</h3>
+                    <p class="text-sm max-w-md text-neutral-400">Like Kahoot, but for stories. Share a 6-digit code and your audience is in. No accounts, no friction.</p>
+                </div>
+            </div>
+
+            <!-- Card 3: No Social Features -->
+            <div class="md:col-span-6 lg:col-span-6 glass rounded-3xl p-8 relative overflow-hidden group card-shine flex flex-col justify-between h-[320px]">
+                <div class="relative z-20">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="w-10 h-10 rounded-lg border flex items-center justify-center bg-white/5 border-white/10 text-white">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+                        </div>
+                        <div class="flex items-center gap-2 text-neutral-500">
+                            <span class="text-xs line-through">Followers</span>
+                            <span class="text-xs line-through">Feed</span>
+                            <span class="text-xs line-through">Algorithm</span>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-medium mb-2 text-white">Not a Social Network</h3>
+                    <p class="text-sm text-neutral-400">No followers to manage. No feed to scroll. No algorithm deciding who sees what. Just you, your story, and the people you invite.</p>
+                </div>
+                
+                <div class="absolute right-0 bottom-0 w-48 h-48 bg-gradient-to-tl from-violet-500/10 to-transparent rounded-tl-full"></div>
+            </div>
+
+            <!-- Card 4: Rooms -->
+            <div class="md:col-span-6 lg:col-span-6 glass rounded-3xl relative overflow-hidden group card-shine h-[320px]">
+                <div class="absolute top-0 left-0 w-full h-8 border-b flex items-center px-4 gap-2 bg-white/5 border-white/5">
+                    <div class="w-2.5 h-2.5 rounded-full bg-violet-500/20 border border-violet-500/50"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-violet-500/20 border border-violet-500/50"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-violet-500/20 border border-violet-500/50"></div>
+                    <span class="ml-2 text-[10px] font-mono text-neutral-500">room.config</span>
+                </div>
+                <div class="p-8 mt-8 font-mono text-xs leading-relaxed text-neutral-400">
+                    <p><span class="text-violet-400">const</span> <span class="text-blue-400">room</span> = {</p>
+                    <p class="pl-4">code: <span class="text-violet-400">'ZOREM1'</span>,</p>
+                    <p class="pl-4">expires: <span class="text-violet-400">'24h'</span>,</p>
+                    <p class="pl-4">viewers: <span class="text-blue-400">12</span>,</p>
+                    <p class="pl-4">stories: [</p>
+                    <p class="pl-8">{ type: <span class="text-violet-400">'image'</span>, seen: <span class="text-blue-400">true</span> },</p>
+                    <p class="pl-8">{ type: <span class="text-violet-400">'video'</span>, seen: <span class="text-blue-400">false</span> }</p>
+                    <p class="pl-4">]</p>
+                    <p>}</p>
+                </div>
+                <div class="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-[#0A0A0B] via-[#0A0A0B]/90 to-transparent">
+                    <h3 class="text-lg font-medium text-white">Rooms that Expire</h3>
+                    <p class="text-sm text-neutral-500">Create a room, set the timer, share the code. When time's up, it's gone.</p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- How it Works Section -->
+    <section id="how-it-works" class="py-32 relative overflow-hidden border-t border-white/5">
+        <div class="absolute inset-0 bg-gradient-to-b from-background to-background via-violet-950/5"></div>
+        <div class="max-w-7xl mx-auto px-6 relative z-10 flex flex-col items-center text-center">
+            <h2 class="text-3xl md:text-5xl font-medium tracking-tight mb-8 text-white">
+                Simple. Private. <span class="text-neutral-500">Ephemeral.</span>
+            </h2>
+            
+            <!-- Steps Visualization -->
+            <div class="w-full max-w-4xl mt-16">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="text-center">
+                        <div class="w-16 h-16 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center mx-auto mb-6">
+                            <span class="text-2xl font-serif italic text-white">1</span>
+                        </div>
+                        <h3 class="text-lg font-medium text-white mb-2">Create a Room</h3>
+                        <p class="text-sm text-neutral-500">Upload your stories and set how long they'll last. Get a unique 6-digit code.</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-16 h-16 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center mx-auto mb-6">
+                            <span class="text-2xl font-serif italic text-white">2</span>
+                        </div>
+                        <h3 class="text-lg font-medium text-white mb-2">Share the Code</h3>
+                        <p class="text-sm text-neutral-500">Send the code to whoever you want. They enter it here and they're in.</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-16 h-16 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center mx-auto mb-6">
+                            <span class="text-2xl font-serif italic text-white">3</span>
+                        </div>
+                        <h3 class="text-lg font-medium text-white mb-2">Watch it Vanish</h3>
+                        <p class="text-sm text-neutral-500">When time expires, the room and all its stories disappear forever. No trace.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-12 mt-20 text-center">
+                <div>
+                    <div class="text-3xl font-serif italic mb-1 text-white">&lt;3s</div>
+                    <div class="text-xs text-neutral-500 uppercase tracking-widest">To join a room</div>
+                </div>
+                <div>
+                    <div class="text-3xl font-serif italic mb-1 text-white">0</div>
+                    <div class="text-xs text-neutral-500 uppercase tracking-widest">Data stored</div>
+                </div>
+                <div>
+                    <div class="text-3xl font-serif italic mb-1 text-white">100%</div>
+                    <div class="text-xs text-neutral-500 uppercase tracking-widest">Private</div>
+                </div>
+                <div>
+                    <div class="text-3xl font-serif italic mb-1 text-white">24h</div>
+                    <div class="text-xs text-neutral-500 uppercase tracking-widest">Max lifetime</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases / Testimonials Section -->
+    <section id="privacy" class="sm:py-24 py-16 pb-16 max-w-5xl mx-auto px-6 border-t border-white/5">
+        <div class="mb-12">
+            <div class="text-center mb-12 fade-in-up animate">
+                <!-- Top meta row -->
+                <div class="mb-6">
+                    <div class="flex items-center justify-between text-[13px] sm:text-sm font-medium uppercase tracking-tight text-neutral-500">
+                        <span class="">USE CASES</span>
+                        <span class="">(03)</span>
+                    </div>
+                    <div class="mt-2 h-px w-full bg-white/10"></div>
+                </div>
+        
+                <!-- Header layout -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 text-left items-center">
+                    <!-- Left: Giant word -->
+                    <div class="lg:col-span-7 fade-in-left animate">
+                        <h3 class="text-[32px] sm:text-[48px] lg:text-[64px] xl:text-[80px] leading-[0.9] uppercase font-semibold tracking-tight text-white">
+                            For Every<br>Moment. 
+                        </h3>
+                    </div>
+        
+                    <!-- Right: Description + CTA -->
+                    <div class="lg:col-span-5 fade-in-right animate">
+                        <p class="sm:text-lg text-neutral-400 max-w-3xl mt-0 mr-auto mb-6 ml-0">
+                            From intimate gatherings to exclusive events. Zorem adapts to how you want to share—privately and temporarily.
+                        </p>
+                        <div class="flex justify-start">
+                            <a href="#" class="inline-flex items-center gap-3 ring-1 ring-white/10 hover:shadow-2xl hover:bg-white/10 transition bg-white/5 rounded-full pt-2 pr-2 pb-2 pl-2 shadow">
+                                <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="m22 2-7 20-4-9-9-4Z" class=""></path>
+                                        <path d="M22 2 11 13" class=""></path>
+                                    </svg>
+                                </span>
+                                <span class="px-3 text-sm font-medium text-white">Start Sharing Now</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-0 rounded-2xl overflow-hidden shadow-sm ring-1 ring-white/10 fade-in-up animate">
+            <!-- Left Use Case -->
+            <div class="relative overflow-hidden text-neutral-300 bg-[#0A0A0B] pt-6 pr-6 pb-6 pl-6">
+                <div class="flex gap-2 mb-4 items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                </div>
+                <div class="flex items-center gap-1 mb-4 text-violet-400">
+                    <span class="text-xs font-medium uppercase tracking-wider">Private Events</span>
+                </div>
+                <p class="text-sm leading-relaxed mb-6">"Used it for my birthday party. Shared the code at the door—everyone could add stories to the same room. Next day, gone. Perfect."</p>
+                <div class="flex items-center justify-between">
+                    <div class="">
+                        <div class="text-sm font-medium text-white">Birthday Party</div>
+                        <div class="text-xs mt-1 text-neutral-500">50 guests, 127 stories</div>
+                    </div>
+                    <div class="w-8 h-8 rounded-full border bg-gradient-to-br from-violet-400 to-pink-400 border-white/10"></div>
+                </div>
+            </div>
+        
+            <!-- Center Highlight -->
+            <div class="relative overflow-hidden text-black bg-[#EDEDED] pt-6 pr-6 pb-6 pl-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-6 h-6 rounded-full border bg-gradient-to-br from-blue-400 to-cyan-400 border-black/10"></div>
+                    <div class="">
+                        <div class="text-sm font-medium">Close Friends 2.0</div>
+                        <div class="text-xs text-black/60">Without the permanence</div>
+                    </div>
+                </div>
+                <div class="flex gap-1 text-black mb-4 items-center">
+                    <span class="text-xs font-medium uppercase tracking-wider">Intimate Sharing</span>
+                </div>
+                <p class="leading-relaxed relative z-10 text-sm font-medium">"Close friends on Instagram feels too permanent. Zorem lets me share moments that are truly temporary. No anxiety about what stays on the internet."</p>
+            </div>
+        
+            <!-- Right Use Case -->
+            <div class="relative overflow-hidden text-neutral-300 bg-[#0A0A0B] pt-6 pr-6 pb-6 pl-6">
+                <div class="flex items-center gap-2 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                    </svg>
+                </div>
+                <div class="flex items-center gap-1 mb-4 text-violet-400">
+                    <span class="text-xs font-medium uppercase tracking-wider">Corporate Events</span>
+                </div>
+                <p class="text-sm leading-relaxed mb-6">"Our company retreat had a Zorem room. Employees shared behind-the-scenes moments without it ending up on LinkedIn forever."</p>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-medium text-white">Team Retreat</div>
+                        <div class="text-xs mt-1 text-neutral-500">200 employees, 1 room</div>
+                    </div>
+                    <div class="w-8 h-8 rounded-full border bg-gradient-to-br from-emerald-400 to-teal-400 border-white/10"></div>
+                </div>
+            </div>
+        
+            <!-- Metrics Row -->
+            <div class="lg:col-span-3 border-t border-white/10">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-0">
+                    <div class="text-white bg-[#0A0A0B] border-white/10 border-r pt-6 pr-6 pb-6 pl-6 scale-in stagger-delay-1 animate">
+                        <div class="text-3xl sm:text-4xl font-semibold tracking-tight mb-2">3s</div>
+                        <div class="text-xs text-neutral-500">Average join time</div>
+                    </div>
+                    <div class="p-6 border-r bg-[#0A0A0B] text-white border-white/10 scale-in stagger-delay-2 animate">
+                        <div class="text-3xl sm:text-4xl font-semibold tracking-tight mb-2">0</div>
+                        <div class="text-xs text-neutral-500">Stories stored after expiry</div>
+                    </div>
+                    <div class="p-6 bg-[#0A0A0B] text-white scale-in stagger-delay-3 animate">
+                        <div class="text-3xl sm:text-4xl font-semibold tracking-tight mb-2">∞</div>
+                        <div class="text-xs text-neutral-500">Moments shared freely</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer with Big CTA -->
+    <footer class="relative pt-32 pb-12 bg-background overflow-hidden">
+        <!-- Background Glow -->
+        <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[400px] bg-[radial-gradient(circle_at_bottom,_var(--tw-gradient-stops))] via-transparent to-transparent pointer-events-none from-violet-900/20"></div>
+
+        <div class="max-w-7xl mx-auto px-6 relative z-10">
+            <div class="flex flex-col items-center text-center mb-24">
+                <h2 class="text-4xl md:text-6xl font-medium tracking-tight mb-8 text-white">
+                    Ready to share <span class="font-serif italic opacity-80">privately?</span>
+                </h2>
+                <div class="flex flex-col sm:flex-row items-center gap-4">
+                    <button class="group relative h-12 px-8 rounded-full font-medium text-sm transition-all overflow-hidden flex items-center gap-2 bg-white text-black hover:bg-neutral-200">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                        <span class="relative z-10">Create Your First Room</span>
+                        <div class="absolute inset-0 bg-gradient-to-r from-transparent to-transparent -translate-x-full group-hover:animate-[beam_0.5s_infinite] via-white/50"></div>
+                    </button>
+                    <button class="h-12 px-8 rounded-full border font-medium text-sm transition-all border-white/10 text-neutral-400 hover:text-white hover:bg-white/5">
+                        Join with code
+                    </button>
+                </div>
+                <div class="mt-6 flex flex-col gap-1 text-[11px] text-neutral-600">
+                    <span>No account required to view.</span>
+                    <span>Free to create. Premium features available.</span>
+                </div>
+            </div>
+
+            <div class="border-t pt-12 flex flex-col md:flex-row justify-between gap-8 border-white/5">
+                <div class="flex items-center gap-2">
+                     <div class="w-5 h-5 text-neutral-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+                    </div>
+                    <span class="text-xs text-neutral-600">© 2024 Zorem. Private stories, public memories.</span>
+                </div>
+                
+                <div class="flex gap-8 text-xs text-neutral-500 font-medium">
+                    <a href="#" class="transition-colors hover:text-white">Privacy</a>
+                    <a href="#" class="transition-colors hover:text-white">Terms</a>
+                    <a href="#" class="transition-colors hover:text-white">Contact</a>
+                    <a href="#" class="transition-colors hover:text-white">Twitter</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        
+        // Simple cursor spotlight effect for cards
+        document.querySelectorAll('.card-shine').forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                card.style.setProperty('--mouse-x', `${x}px`);
+                card.style.setProperty('--mouse-y', `${y}px`);
+            });
+        });
+
+        // Code input formatting
+        const codeInput = document.querySelector('.code-input');
+        if (codeInput) {
+            codeInput.addEventListener('input', (e) => {
+                e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            });
+        }
+    </script>
+
+</body></html>
