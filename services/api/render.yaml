@@ -2,8 +2,8 @@ services:
   - type: web
     name: zorem-api
     env: node
-    plan: free
-    buildCommand: cd services/api && npm install
+    plan: free  # Cambia a 'starter' ($7/mes) para mejor rendimiento en producción
+    buildCommand: cd services/api && npm install && npm run migrate
     startCommand: cd services/api && npm start
     envVars:
       - key: NODE_ENV
@@ -11,12 +11,15 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        value: https://your-frontend.onrender.com
+        value: https://zorem.link  # Actualiza con tu URL real
+      - key: CORS_ORIGIN
+        value: https://zorem.link  # Actualiza con tu URL real
       # DATABASE_URL se agrega automáticamente si conectas PostgreSQL como add-on
       # Las demás variables (storage, etc.) las agregas manualmente en el dashboard
+      # Ver DEPLOYMENT.md para la lista completa de variables
 
 databases:
   - name: zorem-db
-    plan: free
+    plan: free  # Cambia a 'starter' ($7/mes) para mejor rendimiento
     databaseName: zorem
-    user: zorem_user
+    user: zorem

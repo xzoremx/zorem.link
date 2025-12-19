@@ -3,7 +3,9 @@
  * Cliente base para todas las llamadas a la API
  */
 
-const API_BASE_URL = 'http://localhost:3000'; // Cambiar en producción
+import { config as appConfig } from './config.js';
+
+const API_BASE_URL = appConfig.apiBaseUrl;
 
 /**
  * Función base para hacer requests a la API
