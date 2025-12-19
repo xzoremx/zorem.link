@@ -232,6 +232,7 @@
         const token = urlParams.get('token');
         const verifyToken = urlParams.get('verify');
         const oauthToken = urlParams.get('oauth_token');
+        const mode = urlParams.get('mode');
 
         if (verifyToken) {
             handleEmailVerification(verifyToken);
@@ -253,6 +254,25 @@
 
         let isSignInMode = true;
 
+        // Function to switch to Sign Up tab
+        function switchToSignUp() {
+            isSignInMode = false;
+            signUpTab.classList.add('bg-white', 'text-black');
+            signUpTab.classList.remove('text-neutral-400');
+            signInTab.classList.remove('bg-white', 'text-black');
+            signInTab.classList.add('text-neutral-400');
+            signUpForm.classList.remove('hidden');
+            signInForm.classList.add('hidden');
+            magicLinkForm.classList.add('hidden');
+            pageTitle.textContent = 'Sign Up';
+            pageSubtitle.textContent = 'Create your Zorem account';
+        }
+
+        // If mode=signup, switch to sign up tab
+        if (mode === 'signup') {
+            switchToSignUp();
+        }
+
         signInTab.addEventListener('click', () => {
             isSignInMode = true;
             signInTab.classList.add('bg-white', 'text-black');
@@ -267,16 +287,7 @@
         });
 
         signUpTab.addEventListener('click', () => {
-            isSignInMode = false;
-            signUpTab.classList.add('bg-white', 'text-black');
-            signUpTab.classList.remove('text-neutral-400');
-            signInTab.classList.remove('bg-white', 'text-black');
-            signInTab.classList.add('text-neutral-400');
-            signUpForm.classList.remove('hidden');
-            signInForm.classList.add('hidden');
-            magicLinkForm.classList.add('hidden');
-            pageTitle.textContent = 'Sign Up';
-            pageSubtitle.textContent = 'Create your Zorem account';
+            switchToSignUp();
         });
 
         magicLinkToggle.addEventListener('click', (e) => {
