@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: zorem-api
+    env: node
+    plan: free
+    buildCommand: cd services/api && npm install
+    startCommand: cd services/api && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://your-frontend.onrender.com
+      # DATABASE_URL se agrega automáticamente si conectas PostgreSQL como add-on
+      # Las demás variables (storage, etc.) las agregas manualmente en el dashboard
+
+databases:
+  - name: zorem-db
+    plan: free
+    databaseName: zorem
+    user: zorem_user

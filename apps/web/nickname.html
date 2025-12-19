@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choose Your Nickname - Zorem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #050505; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-up { animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        
+        .glass {
+            background: rgba(20, 20, 22, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .glass-input {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .glass-input:focus {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-background antialiased selection:bg-white/20 selection:text-white overflow-x-hidden text-neutral-300 min-h-screen flex items-center justify-center p-4">
+
+    <!-- Background -->
+    <div class="fixed inset-0 z-0 pointer-events-none">
+        <div class="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[80%] h-[600px] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] via-background to-background blur-[100px] opacity-50 from-violet-900/20"></div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="relative z-10 w-full max-w-md animate-fade-up">
+        <!-- Logo -->
+        <div class="flex items-center justify-center mb-8 animate-fade-up delay-100">
+            <img src="assets/logo.png" alt="Zorem" class="w-12 h-12 object-contain">
+        </div>
+
+        <!-- Card -->
+        <div class="glass rounded-2xl p-8 animate-fade-up delay-200">
+            <h1 class="text-2xl font-medium text-white mb-2 text-center">Choose Your Nickname</h1>
+            <p class="text-sm text-neutral-400 text-center mb-8">This is how others will see you in this room</p>
+
+            <form id="nicknameForm" class="space-y-6">
+                <div>
+                    <label class="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2 block">Nickname</label>
+                    <input 
+                        type="text" 
+                        id="nicknameInput"
+                        placeholder="Enter your nickname"
+                        maxlength="50"
+                        class="w-full h-14 px-6 rounded-xl glass-input text-lg text-white placeholder:text-neutral-600 outline-none transition-all"
+                        required
+                        autofocus
+                    >
+                    <p class="text-xs text-neutral-500 mt-2">Max 50 characters</p>
+                </div>
+
+                <div id="errorMessage" class="hidden text-red-400 text-sm text-center"></div>
+
+                <button 
+                    type="submit"
+                    id="submitButton"
+                    class="w-full h-14 px-8 rounded-xl font-medium text-sm transition-all overflow-hidden flex items-center justify-center gap-2 bg-white text-black hover:bg-neutral-200"
+                >
+                    <span>Join Room</span>
+                </button>
+            </form>
+
+            <div class="mt-6 text-center">
+                <a href="landing.html" class="text-xs text-neutral-500 hover:text-white transition-colors">Back to home</a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { viewerAPI, utils } from './js/api.js';
+
+        // Get code from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+
+        if (!code) {
+            window.location.href = 'landing.html';
+        }
+
+        const form = document.getElementById('nicknameForm');
+        const nicknameInput = document.getElementById('nicknameInput');
+        const submitButton = document.getElementById('submitButton');
+        const errorMessage = document.getElementById('errorMessage');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const nickname = nicknameInput.value.trim();
+
+            if (!nickname || nickname.length === 0) {
+                showError('Please enter a nickname');
+                return;
+            }
+
+            if (nickname.length > 50) {
+                showError('Nickname must be 50 characters or less');
+                return;
+            }
+
+            try {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span>Joining...</span>';
+
+                // Join room
+                const result = await viewerAPI.joinRoom(code, nickname);
+
+                // Save viewer hash and room info
+                utils.setViewerHash(result.viewer_hash);
+                utils.setRoomId(result.room_id);
+
+                // Redirect to room
+                window.location.href = `room.html?room_id=${result.room_id}`;
+            } catch (error) {
+                showError(error.message || 'Failed to join room');
+                submitButton.disabled = false;
+                submitButton.innerHTML = '<span>Join Room</span>';
+            }
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            setTimeout(() => {
+                errorMessage.classList.add('hidden');
+            }, 5000);
+        }
+    </script>
+
+</body>
+</html>

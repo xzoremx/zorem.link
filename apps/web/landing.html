@@ -264,8 +264,8 @@ addUtilities({
             </div>
 
             <div class="flex items-center gap-3">
-                <a href="#" class="text-[13px] font-medium transition-colors px-2 hidden sm:block text-neutral-400 hover:text-white">Sign in</a>
-                <button class="group relative px-4 py-1.5 rounded-full text-[13px] font-medium transition-all overflow-hidden bg-white text-black hover:bg-neutral-200">
+                <a href="auth.html" class="text-[13px] font-medium transition-colors px-2 hidden sm:block text-neutral-400 hover:text-white">Sign in</a>
+                <button id="navCreateRoomButton" class="group relative px-4 py-1.5 rounded-full text-[13px] font-medium transition-all overflow-hidden bg-white text-black hover:bg-neutral-200">
                     <span class="relative z-10 flex items-center gap-1">
                         Create Room
                     </span>
@@ -752,7 +752,7 @@ addUtilities({
                     Ready to share <span class="font-serif italic opacity-80">privately?</span>
                 </h2>
                 <div class="flex flex-col sm:flex-row items-center gap-4">
-                    <button class="group relative h-12 px-8 rounded-full font-medium text-sm transition-all overflow-hidden flex items-center gap-2 bg-white text-black hover:bg-neutral-200">
+                    <button id="footerCreateRoomButton" class="group relative h-12 px-8 rounded-full font-medium text-sm transition-all overflow-hidden flex items-center gap-2 bg-white text-black hover:bg-neutral-200">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
                         <span class="relative z-10">Create Your First Room</span>
                         <div class="absolute inset-0 bg-gradient-to-r from-transparent to-transparent -translate-x-full group-hover:animate-[beam_0.5s_infinite] via-white/50"></div>
@@ -782,7 +782,9 @@ addUtilities({
         </div>
     </footer>
 
-    <script>
+    <script type="module">
+        import { roomsAPI, utils } from './js/api.js';
+        
         lucide.createIcons();
         
         // Simple cursor spotlight effect for cards
@@ -798,10 +800,115 @@ addUtilities({
 
         // Code input formatting
         const codeInput = document.querySelector('.code-input');
+        
+        // Find join button (the one with "Join Room" text)
+        const allButtons = document.querySelectorAll('button');
+        const joinButton = Array.from(allButtons).find(btn => 
+            btn.textContent.includes('Join Room')
+        );
+        const createRoomButton = Array.from(allButtons).find(btn => 
+            btn.textContent.includes('Create Room')
+        );
+
         if (codeInput) {
             codeInput.addEventListener('input', (e) => {
                 e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
             });
+
+            // Enter key to join
+            codeInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleJoinRoom();
+                }
+            });
+        }
+
+        // Join Room functionality
+        async function handleJoinRoom() {
+            const code = codeInput?.value.trim();
+            
+            if (!code || code.length !== 6) {
+                showError('Please enter a valid 6-character code');
+                return;
+            }
+
+            try {
+                // Disable button
+                if (joinButton) {
+                    joinButton.disabled = true;
+                    joinButton.innerHTML = '<span class="relative z-10">Validating...</span>';
+                }
+
+                // Validate code
+                const result = await roomsAPI.validateCode(code);
+                
+                if (result.valid) {
+                    // Redirect to nickname page
+                    window.location.href = `nickname.html?code=${code}`;
+                } else {
+                    showError(result.error || 'Invalid room code');
+                }
+            } catch (error) {
+                showError(error.message || 'Failed to validate code');
+            } finally {
+                if (joinButton) {
+                    joinButton.disabled = false;
+                    joinButton.innerHTML = `
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                            <polyline points="10 17 15 12 10 7"></polyline>
+                            <line x1="15" y1="12" x2="3" y2="12"></line>
+                        </svg>
+                        <span class="relative z-10">Join Room</span>
+                    `;
+                }
+            }
+        }
+
+        // Create Room buttons
+        const navCreateButton = document.getElementById('navCreateRoomButton');
+        const handleCreateRoom = () => {
+            const token = utils.getAuthToken();
+            if (token) {
+                window.location.href = 'create-room.html';
+            } else {
+                window.location.href = 'auth.html';
+            }
+        };
+
+        if (createRoomButton) {
+            createRoomButton.addEventListener('click', handleCreateRoom);
+        }
+        if (navCreateButton) {
+            navCreateButton.addEventListener('click', handleCreateRoom);
+        }
+        
+        // Footer Create Room button
+        const footerCreateButton = document.getElementById('footerCreateRoomButton');
+        if (footerCreateButton) {
+            footerCreateButton.addEventListener('click', handleCreateRoom);
+        }
+
+        // Join button click
+        if (joinButton) {
+            joinButton.addEventListener('click', handleJoinRoom);
+        }
+
+        // Show error message
+        function showError(message) {
+            // Create or update error message
+            let errorDiv = document.querySelector('.error-message');
+            if (!errorDiv) {
+                errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 text-white px-6 py-3 rounded-lg shadow-lg';
+                document.body.appendChild(errorDiv);
+            }
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
         }
     </script>
 
