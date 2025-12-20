@@ -1,7 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { query } from '../db/pool.js';
-import { generateUploadUrl, generateMediaKey, deleteFile } from '../lib/s3.js';
+import { generateUploadUrl, generateDownloadUrl, generateMediaKey, deleteFile } from '../lib/s3.js';
 import { config } from '../config/env.js';
 import { verifyAuth } from '../middlewares/auth.js';
 import { validateViewerHash } from '../lib/crypto.js';
@@ -114,22 +114,20 @@ router.get('/room/:roomId', async (req, res) => {
       viewedStoryIds = viewsResult.rows.map(row => row.story_id);
     }
 
-    const stories = storiesResult.rows.map(story => {
-      // Construir URL del media (asumiendo que S3/R2 está configurado)
-      // En producción, esto debería ser una URL pública o presigned URL
+    const stories = await Promise.all(storiesResult.rows.map(async (story) => {
+      // Construir URL del media:
+      // - S3 privado: devolver presigned GET (para que el frontend pueda ver el archivo)
+      // - R2 público (si aplica): usar URL pública basada en endpoint
       let mediaUrl = null;
+
       if (config.s3BucketName) {
         if (config.storageType === 'r2' && config.r2Endpoint) {
-          // Para R2, construir URL pública
-          const endpoint = config.r2Endpoint.replace(/\/$/, ''); // Remove trailing slash
+          const endpoint = config.r2Endpoint.replace(/\/$/, '');
           mediaUrl = `${endpoint}/${story.media_key}`;
         } else {
-          // Para S3, usar el formato estándar
-          mediaUrl = `https://${config.s3BucketName}.s3.${config.awsRegion}.amazonaws.com/${story.media_key}`;
+          // 1 hora para ver (se re-genera en cada refresh)
+          mediaUrl = await generateDownloadUrl(story.media_key, 3600);
         }
-      } else {
-        // Si no hay storage configurado, devolver null (el frontend manejará esto)
-        mediaUrl = null;
       }
 
       return {
@@ -142,7 +140,7 @@ router.get('/room/:roomId', async (req, res) => {
         view_count: parseInt(story.view_count) || 0,
         viewed: viewedStoryIds.includes(story.id)
       };
-    });
+    }));
 
     res.json({
       room_id: roomId,

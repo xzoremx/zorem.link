@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 import { config } from '../config/env.js';
@@ -45,6 +45,24 @@ export async function generateUploadUrl(mediaKey, contentType, expiresIn = 300) 
     Bucket: config.s3BucketName,
     Key: mediaKey,
     ContentType: contentType,
+  });
+
+  const url = await getSignedUrl(client, command, { expiresIn });
+  return url;
+}
+
+/**
+ * Generate a presigned URL for downloading/viewing a file
+ * @param {string} mediaKey - The S3 key for the file
+ * @param {number} expiresIn - URL expiration time in seconds (default: 3600 = 1 hour)
+ * @returns {Promise<string>} Presigned URL
+ */
+export async function generateDownloadUrl(mediaKey, expiresIn = 3600) {
+  const client = getS3Client();
+
+  const command = new GetObjectCommand({
+    Bucket: config.s3BucketName,
+    Key: mediaKey,
   });
 
   const url = await getSignedUrl(client, command, { expiresIn });
