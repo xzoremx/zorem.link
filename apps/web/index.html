@@ -264,8 +264,11 @@ addUtilities({
             </div>
 
             <div class="flex items-center gap-3">
-                <a href="auth.html" class="text-[13px] font-medium transition-colors px-2 hidden sm:block text-neutral-400 hover:text-white">Sign in</a>
-                <a href="auth.html?mode=signup" class="text-[13px] font-medium transition-colors px-2 hidden sm:block text-neutral-400 hover:text-white">Register</a>
+                <a id="navSignInLink" href="auth.html" class="text-[13px] font-medium transition-colors px-2 hidden sm:block text-neutral-400 hover:text-white">Sign in</a>
+                <a id="navRegisterLink" href="auth.html?mode=signup" class="text-[13px] font-medium transition-colors px-2 hidden sm:block text-neutral-400 hover:text-white">Register</a>
+                <span id="navUserEmail" style="display:none" class="text-[13px] font-medium text-neutral-500 max-w-[180px] truncate"></span>
+                <button id="navMyRoomsButton" type="button" style="display:none" class="text-[13px] font-medium transition-colors px-2 text-neutral-400 hover:text-white">My Rooms</button>
+                <button id="navLogoutButton" type="button" style="display:none" class="text-[13px] font-medium transition-colors px-2 text-neutral-400 hover:text-white">Log out</button>
                 <button id="navCreateRoomButton" class="group relative px-4 py-1.5 rounded-full text-[13px] font-medium transition-all overflow-hidden bg-white text-black hover:bg-neutral-200">
                     <span class="relative z-10 flex items-center gap-1">
                         Create Room
@@ -784,7 +787,7 @@ addUtilities({
     </footer>
 
     <script type="module">
-        import { roomsAPI, utils } from './js/api.js';
+        import { roomsAPI, utils, authAPI } from './js/api.js';
         
         lucide.createIcons();
         
@@ -868,6 +871,78 @@ addUtilities({
 
         // Create Room buttons
         const navCreateButton = document.getElementById('navCreateRoomButton');
+        const navSignInLink = document.getElementById('navSignInLink');
+        const navRegisterLink = document.getElementById('navRegisterLink');
+        const navUserEmail = document.getElementById('navUserEmail');
+        const navMyRoomsButton = document.getElementById('navMyRoomsButton');
+        const navLogoutButton = document.getElementById('navLogoutButton');
+
+        const setLoggedOutUI = () => {
+            if (navSignInLink) navSignInLink.style.display = '';
+            if (navRegisterLink) navRegisterLink.style.display = '';
+            if (navUserEmail) navUserEmail.style.display = 'none';
+            if (navMyRoomsButton) navMyRoomsButton.style.display = 'none';
+            if (navLogoutButton) navLogoutButton.style.display = 'none';
+        };
+
+        const setLoggedInUI = (email) => {
+            if (navSignInLink) navSignInLink.style.display = 'none';
+            if (navRegisterLink) navRegisterLink.style.display = 'none';
+            if (navUserEmail) {
+                navUserEmail.textContent = email || '';
+                navUserEmail.title = email || '';
+                navUserEmail.style.display = email ? '' : 'none';
+            }
+            if (navMyRoomsButton) navMyRoomsButton.style.display = '';
+            if (navLogoutButton) navLogoutButton.style.display = '';
+        };
+
+        const refreshAuthUI = async () => {
+            const token = utils.getAuthToken();
+            if (!token) {
+                setLoggedOutUI();
+                return;
+            }
+
+            // Optimistic UI: if there's a token, treat as logged in while we verify.
+            const cachedEmail = utils.getAuthEmail ? utils.getAuthEmail() : null;
+            setLoggedInUI(cachedEmail);
+
+            try {
+                const me = await authAPI.getMe();
+                if (me?.email && utils.setAuthEmail) {
+                    utils.setAuthEmail(me.email);
+                }
+                setLoggedInUI(me?.email || cachedEmail);
+            } catch (error) {
+                const msg = (error && error.message) ? error.message : String(error);
+                const authErrors = new Set(['No token provided', 'User not found', 'Token expired', 'Invalid token']);
+
+                if (authErrors.has(msg) || msg.includes('HTTP error! status: 401') || msg.includes('HTTP error! status: 403')) {
+                    utils.clearAuthToken();
+                    setLoggedOutUI();
+                    return;
+                }
+
+                // Network/server issues (Render sleeping, etc): keep token and show cached email if available.
+                setLoggedInUI(cachedEmail);
+            }
+        };
+
+        if (navLogoutButton) {
+            navLogoutButton.addEventListener('click', () => {
+                utils.clearSession();
+                window.location.href = 'index.html';
+            });
+        }
+
+        if (navMyRoomsButton) {
+            navMyRoomsButton.addEventListener('click', () => {
+                const token = utils.getAuthToken();
+                window.location.href = token ? 'my-rooms.html' : 'auth.html';
+            });
+        }
+
         const handleCreateRoom = () => {
             const token = utils.getAuthToken();
             if (token) {
@@ -889,6 +964,9 @@ addUtilities({
         if (footerCreateButton) {
             footerCreateButton.addEventListener('click', handleCreateRoom);
         }
+
+        // Update nav auth links based on session (and show email)
+        refreshAuthUI();
 
         // Join button click
         if (joinButton) {

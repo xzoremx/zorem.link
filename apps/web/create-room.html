@@ -48,14 +48,21 @@
     </div>
 
     <!-- Navigation -->
-    <nav class="relative z-10 max-w-7xl mx-auto mb-8">
-        <a href="index.html" class="inline-flex items-center gap-2 text-neutral-400 hover:text-white transition-colors">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-            <span>Back</span>
-        </a>
-    </nav>
+    <nav class="relative z-10 max-w-7xl mx-auto mb-8 flex items-center justify-between">
+         <a href="index.html" class="inline-flex items-center gap-2 text-neutral-400 hover:text-white transition-colors">
+             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                 <path d="M19 12H5M12 19l-7-7 7-7"/>
+             </svg>
+             <span>Back</span>
+         </a>
+         <div class="flex items-center gap-3">
+             <a href="my-rooms.html" class="text-sm text-neutral-400 hover:text-white transition-colors">My Rooms</a>
+             <span id="userEmail" class="text-sm text-neutral-500 max-w-[220px] truncate"></span>
+             <button id="logoutButton" type="button" class="text-sm text-neutral-400 hover:text-white transition-colors">
+                 Log out
+             </button>
+         </div>
+     </nav>
 
     <!-- Main Content -->
     <main class="relative z-10 max-w-2xl mx-auto">
@@ -255,25 +262,33 @@
 
         // Wrap everything in an async IIFE to allow await at top level
         (async function() {
+            const logoutButton = document.getElementById('logoutButton');
+            if (logoutButton) {
+                logoutButton.addEventListener('click', () => {
+                    utils.clearSession();
+                    window.location.href = 'index.html';
+                });
+            }
+
             // Check if user is authenticated and token is valid
             async function checkAuthentication() {
                 const token = utils.getAuthToken();
                 if (!token) {
                     // No token, redirect to auth
                     window.location.href = 'auth.html';
-                    return false;
+                    return null;
                 }
 
                 // Verify token is valid by calling /api/auth/me
                 try {
-                    await authAPI.getMe();
-                    return true; // Token is valid
+                    const me = await authAPI.getMe();
+                    return me; // Token is valid
                 } catch (error) {
                     // Token is invalid or expired, clear it and redirect
                     console.log('Token invalid or expired, redirecting to auth...', error);
                     utils.clearAuthToken();
                     window.location.href = 'auth.html';
-                    return false;
+                    return null;
                 }
             }
 
@@ -282,10 +297,19 @@
             const formCard = document.getElementById('formCard');
 
             // Wait for authentication check before allowing form submission
-            const isAuthenticated = await checkAuthentication();
-            if (!isAuthenticated) {
+            const currentUser = await checkAuthentication();
+            if (!currentUser) {
                 // Will redirect, so stop execution
                 return;
+            }
+
+            const userEmail = document.getElementById('userEmail');
+            if (userEmail) {
+                userEmail.textContent = currentUser.email || '';
+                userEmail.title = currentUser.email || '';
+            }
+            if (currentUser.email && utils.setAuthEmail) {
+                utils.setAuthEmail(currentUser.email);
             }
 
             // Hide loading, show form

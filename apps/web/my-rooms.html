@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Rooms - Zorem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #050505; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-up { animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        
+        .glass {
+            background: rgba(20, 20, 22, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .glass-input {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-background antialiased selection:bg-white/20 selection:text-white overflow-x-hidden text-neutral-300 min-h-screen p-4">
+
+    <!-- Background -->
+    <div class="fixed inset-0 z-0 pointer-events-none">
+        <div class="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[80%] h-[600px] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] via-background to-background blur-[100px] opacity-50 from-violet-900/20"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="relative z-10 max-w-7xl mx-auto mb-8 flex items-center justify-between">
+        <a href="index.html" class="inline-flex items-center gap-2 text-neutral-400 hover:text-white transition-colors">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            <span>Home</span>
+        </a>
+        <div class="flex items-center gap-3">
+            <a href="create-room.html" class="text-sm text-neutral-400 hover:text-white transition-colors">Create Room</a>
+            <span id="userEmail" class="text-sm text-neutral-500 max-w-[220px] truncate"></span>
+            <button id="logoutButton" type="button" class="text-sm text-neutral-400 hover:text-white transition-colors">
+                Log out
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="relative z-10 max-w-5xl mx-auto">
+        <div class="text-center mb-8 animate-fade-up">
+            <h1 class="text-4xl md:text-5xl font-medium tracking-tight mb-3 text-white">My Rooms</h1>
+            <p class="text-neutral-400">Your active rooms and recent history</p>
+        </div>
+
+        <!-- Loading -->
+        <div id="loadingMessage" class="glass rounded-2xl p-8 text-center animate-fade-up delay-100">
+            <div class="text-neutral-400">Loading your rooms...</div>
+            <div class="text-xs text-neutral-600 mt-2">If you’re on Render free tier, the API may take ~30–60s to wake up.</div>
+        </div>
+
+        <!-- Error -->
+        <div id="errorCard" class="hidden glass rounded-2xl p-8 text-center animate-fade-up delay-100">
+            <div class="text-red-400 font-medium mb-2">Couldn’t load your rooms</div>
+            <div id="errorMessage" class="text-neutral-400 text-sm mb-6"></div>
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                <button id="retryButton" class="h-11 px-5 rounded-xl bg-white text-black hover:bg-neutral-200 font-medium">Retry</button>
+                <a href="create-room.html" class="h-11 px-5 rounded-xl border border-white/10 hover:bg-white/5 font-medium inline-flex items-center justify-center">Create a room</a>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div id="roomsContent" class="hidden space-y-6 animate-fade-up delay-100">
+            <div class="glass rounded-2xl p-6 md:p-8">
+                <div class="flex items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-medium text-white">Active</h2>
+                        <p class="text-sm text-neutral-500">Rooms that are still live</p>
+                    </div>
+                    <span id="activeCount" class="text-xs text-neutral-500"></span>
+                </div>
+                <div id="activeRooms" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                <div id="noActive" class="hidden text-center text-neutral-500 text-sm py-8">
+                    No active rooms yet.
+                </div>
+            </div>
+
+            <div class="glass rounded-2xl p-6 md:p-8">
+                <div class="flex items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-medium text-white">Past</h2>
+                        <p class="text-sm text-neutral-500">Expired or closed rooms</p>
+                    </div>
+                    <span id="pastCount" class="text-xs text-neutral-500"></span>
+                </div>
+                <div id="pastRooms" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                <div id="noPast" class="hidden text-center text-neutral-500 text-sm py-8">
+                    No past rooms.
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { roomsAPI, utils, authAPI } from './js/api.js';
+
+        const loadingMessage = document.getElementById('loadingMessage');
+        const roomsContent = document.getElementById('roomsContent');
+        const errorCard = document.getElementById('errorCard');
+        const errorMessage = document.getElementById('errorMessage');
+        const retryButton = document.getElementById('retryButton');
+
+        const userEmail = document.getElementById('userEmail');
+        const logoutButton = document.getElementById('logoutButton');
+
+        const activeRoomsEl = document.getElementById('activeRooms');
+        const pastRoomsEl = document.getElementById('pastRooms');
+        const noActive = document.getElementById('noActive');
+        const noPast = document.getElementById('noPast');
+        const activeCount = document.getElementById('activeCount');
+        const pastCount = document.getElementById('pastCount');
+
+        function showError(message) {
+            if (loadingMessage) loadingMessage.classList.add('hidden');
+            if (roomsContent) roomsContent.classList.add('hidden');
+            if (errorCard) errorCard.classList.remove('hidden');
+            if (errorMessage) errorMessage.textContent = message || 'Unknown error';
+        }
+
+        function showContent() {
+            if (loadingMessage) loadingMessage.classList.add('hidden');
+            if (errorCard) errorCard.classList.add('hidden');
+            if (roomsContent) roomsContent.classList.remove('hidden');
+        }
+
+        function formatDate(iso) {
+            try {
+                const d = new Date(iso);
+                return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            } catch {
+                return iso;
+            }
+        }
+
+        function buildInviteLink(code) {
+            const origin = window.location.origin;
+            return `${origin}/nickname.html?code=${encodeURIComponent(code)}`;
+        }
+
+        function roomCard(room, kind) {
+            const now = Date.now();
+            const expiresAt = new Date(room.expires_at).getTime();
+            const expired = Number.isFinite(expiresAt) ? expiresAt <= now : false;
+
+            const status = room.is_active !== true
+                ? 'CLOSED'
+                : expired
+                    ? 'EXPIRED'
+                    : 'ACTIVE';
+
+            const expiresLabel = status === 'ACTIVE'
+                ? (room.hours_remaining > 0 ? `Expires in ~${room.hours_remaining}h` : 'Expiring soon')
+                : status === 'EXPIRED'
+                    ? `Expired: ${formatDate(room.expires_at)}`
+                    : `Closed: ${formatDate(room.expires_at)}`;
+
+            const inviteLink = buildInviteLink(room.code);
+
+            const action = kind === 'active'
+                ? `<a href="room.html?room_id=${encodeURIComponent(room.room_id)}" class="shrink-0 h-10 px-4 rounded-xl bg-white text-black hover:bg-neutral-200 font-medium inline-flex items-center justify-center">Open</a>`
+                : `<button type="button" disabled class="shrink-0 h-10 px-4 rounded-xl bg-white/10 text-white/60 font-medium cursor-not-allowed">Unavailable</button>`;
+
+            const inviteButton = kind === 'active'
+                ? `<button class="copyBtn h-10 px-4 rounded-xl border border-white/10 hover:bg-white/5 text-sm font-medium" data-copy="${inviteLink}">Copy invite link</button>`
+                : '';
+
+            return `
+                <div class="glass rounded-2xl p-5">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-medium tracking-wider text-neutral-500">${status}</span>
+                                <span class="text-xs text-neutral-600">•</span>
+                                <span class="text-xs text-neutral-500">${expiresLabel}</span>
+                            </div>
+                            <div class="mt-2 text-3xl font-mono font-bold text-white">${room.code}</div>
+                            <div class="mt-2 text-xs text-neutral-500">
+                                Created: ${formatDate(room.created_at)} • Uploads: ${room.allow_uploads ? 'on' : 'off'} • Stories: ${room.story_count} • Viewers: ${room.viewer_count}
+                            </div>
+                        </div>
+                        ${action}
+                    </div>
+
+                    <div class="mt-4 flex flex-col sm:flex-row gap-2">
+                        <button class="copyBtn h-10 px-4 rounded-xl border border-white/10 hover:bg-white/5 text-sm font-medium" data-copy="${room.code}">
+                            Copy code
+                        </button>
+                        ${inviteButton}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function copyText(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+                return ok;
+            }
+        }
+
+        function attachCopyHandlers(container) {
+            if (!container || container.dataset.copyHandlersAttached === 'true') return;
+            container.dataset.copyHandlersAttached = 'true';
+            container.addEventListener('click', async (e) => {
+                const target = e.target.closest('.copyBtn');
+                if (!target) return;
+                const text = target.getAttribute('data-copy') || '';
+                const original = target.textContent;
+                const ok = await copyText(text);
+                target.textContent = ok ? 'Copied!' : 'Copy failed';
+                setTimeout(() => { target.textContent = original; }, 1500);
+            });
+        }
+
+        async function loadRooms() {
+            if (loadingMessage) loadingMessage.classList.remove('hidden');
+            if (roomsContent) roomsContent.classList.add('hidden');
+            if (errorCard) errorCard.classList.add('hidden');
+
+            const token = utils.getAuthToken();
+            if (!token) {
+                window.location.href = 'auth.html';
+                return;
+            }
+
+            const cachedEmail = utils.getAuthEmail ? utils.getAuthEmail() : null;
+            if (cachedEmail && userEmail) {
+                userEmail.textContent = cachedEmail;
+                userEmail.title = cachedEmail;
+            }
+
+            if (logoutButton) {
+                logoutButton.addEventListener('click', () => {
+                    utils.clearSession();
+                    window.location.href = 'index.html';
+                }, { once: true });
+            }
+
+            // Verify session + show email
+            try {
+                const me = await authAPI.getMe();
+                if (me?.email) {
+                    if (utils.setAuthEmail) utils.setAuthEmail(me.email);
+                    if (userEmail) {
+                        userEmail.textContent = me.email;
+                        userEmail.title = me.email;
+                    }
+                }
+            } catch (error) {
+                const msg = (error && error.message) ? error.message : String(error);
+                const authErrors = new Set(['No token provided', 'User not found', 'Token expired', 'Invalid token']);
+                if (authErrors.has(msg) || msg.includes('HTTP error! status: 401') || msg.includes('HTTP error! status: 403')) {
+                    utils.clearSession();
+                    window.location.href = 'auth.html';
+                    return;
+                }
+                showError(msg || 'API not available. Try again in a few seconds.');
+                return;
+            }
+
+            // Fetch rooms
+            try {
+                const result = await roomsAPI.listRooms();
+                const rooms = Array.isArray(result.rooms) ? result.rooms : [];
+
+                const now = Date.now();
+                const active = rooms.filter(r => r.is_active === true && new Date(r.expires_at).getTime() > now);
+                const past = rooms.filter(r => !active.includes(r));
+
+                if (activeCount) activeCount.textContent = `${active.length} room${active.length === 1 ? '' : 's'}`;
+                if (pastCount) pastCount.textContent = `${past.length} room${past.length === 1 ? '' : 's'}`;
+
+                if (activeRoomsEl) activeRoomsEl.innerHTML = active.map(r => roomCard(r, 'active')).join('');
+                if (pastRoomsEl) pastRoomsEl.innerHTML = past.map(r => roomCard(r, 'past')).join('');
+
+                if (noActive) noActive.classList.toggle('hidden', active.length !== 0);
+                if (noPast) noPast.classList.toggle('hidden', past.length !== 0);
+
+                if (activeRoomsEl) attachCopyHandlers(activeRoomsEl);
+                if (pastRoomsEl) attachCopyHandlers(pastRoomsEl);
+
+                showContent();
+            } catch (error) {
+                showError(error.message || 'Failed to load rooms');
+            }
+        }
+
+        if (retryButton) {
+            retryButton.addEventListener('click', loadRooms);
+        }
+
+        loadRooms();
+    </script>
+
+</body>
+</html>

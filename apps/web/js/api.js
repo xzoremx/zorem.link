@@ -297,6 +297,22 @@ export const utils = {
   },
 
   /**
+   * Guardar email del usuario autenticado (cache)
+   */
+  setAuthEmail(email) {
+    if (email) {
+      localStorage.setItem('auth_email', email);
+    }
+  },
+
+  /**
+   * Obtener email del usuario autenticado (cache)
+   */
+  getAuthEmail() {
+    return localStorage.getItem('auth_email');
+  },
+
+  /**
    * Obtener token de autenticación
    */
   getAuthToken() {
@@ -308,6 +324,7 @@ export const utils = {
    */
   clearAuthToken() {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_email');
   },
 
   /**
@@ -345,5 +362,6 @@ export const utils = {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('viewer_hash');
     localStorage.removeItem('current_room_id');
+    localStorage.removeItem('auth_email');
   },
 };
