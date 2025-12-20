@@ -16,6 +16,13 @@ services:
         value: https://zorem.link  # Actualiza con tu URL real
       # DATABASE_URL se agrega automáticamente si conectas PostgreSQL como add-on
       # Las demás variables (storage, etc.) las agregas manualmente en el dashboard
+      # Auth + Email (Resend)
+      # - RESEND_API_KEY
+      # - RESEND_FROM_EMAIL=Zorem <noreply@zorem.link>
+      # Google OAuth
+      # - GOOGLE_CLIENT_ID
+      # - GOOGLE_CLIENT_SECRET
+      # - GOOGLE_REDIRECT_URI=https://api.zorem.link/api/auth/google/callback
       # Ver DEPLOYMENT.md para la lista completa de variables
 
 databases:

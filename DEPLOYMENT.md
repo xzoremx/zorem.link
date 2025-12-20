@@ -326,6 +326,33 @@ SELECT * FROM users LIMIT 1;
 
 ### Email (Para verificación y magic links)
 
+**Recomendado (fácil): Resend**
+
+1. Crea cuenta en `resend.com`
+2. Verifica tu dominio `zorem.link` (DNS en Namecheap)
+3. Crea un API Key
+4. En Render → `zorem-api` → Environment agrega:
+
+```env
+RESEND_API_KEY=...
+RESEND_FROM_EMAIL=Zorem <noreply@zorem.link>
+```
+
+
+**Google OAuth (Sign in with Google)**
+
+1. En Google Cloud Console crea credenciales OAuth 2.0
+2. Configura Redirect URI:
+   `https://api.zorem.link/api/auth/google/callback`
+3. En Render → `zorem-api` → Environment agrega:
+
+```env
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI=https://api.zorem.link/api/auth/google/callback
+```
+
+
 **Opciones:**
 - **SendGrid** (gratis hasta 100 emails/día)
 - **AWS SES** (muy barato)

@@ -10,7 +10,7 @@
    - Conecta tu repo de GitHub
    - Configura:
      - Name: `zorem-api`
-     - Build: `cd services/api && npm install && npm run migrate`
+     - Build: `cd services/api && npm install`
      - Start: `cd services/api && npm start`
 
 2. **Crear PostgreSQL:**

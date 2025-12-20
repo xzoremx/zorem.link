@@ -232,9 +232,12 @@
         const token = urlParams.get('token');
         const verifyToken = urlParams.get('verify');
         const oauthToken = urlParams.get('oauth_token');
+        const oauthError = urlParams.get('oauth_error');
         const mode = urlParams.get('mode');
 
-        if (verifyToken) {
+        if (oauthError) {
+            showError('Google sign in failed. Please try again.');
+        } else if (verifyToken) {
             handleEmailVerification(verifyToken);
         } else if (token) {
             handleMagicLinkVerification(token);
@@ -466,10 +469,10 @@
             }
         }
 
-        async function handleOAuthCallback(token) {
+        function handleOAuthCallback(token) {
             try {
-                const result = await authAPI.verifyOAuthToken(token);
-                utils.setAuthToken(result.token);
+                // oauth_token ya es un JWT de sesión generado por el backend
+                utils.setAuthToken(token);
                 window.location.href = 'create-room.html';
             } catch (error) {
                 showError('Failed to complete Google sign in');

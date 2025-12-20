@@ -126,12 +126,6 @@ export const authAPI = {
     });
   },
 
-  async verifyOAuthToken(token) {
-    return apiRequest(`/api/auth/google/callback?token=${token}`, {
-      method: 'GET',
-    });
-  },
-
   async verifyEmail(token) {
     return apiRequest(`/api/auth/verify-email?token=${token}`, {
       method: 'GET',

@@ -5,29 +5,31 @@
 
 // Detectar automáticamente la URL de la API
 function getApiBaseUrl() {
+  const hostname = window.location.hostname;
+
   // Si estamos en localhost, usar localhost:3000
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:3000';
   }
-  
+
+  // Permite override desde el HTML (opcional)
+  if (typeof window.API_BASE_URL === 'string' && window.API_BASE_URL.trim()) {
+    return window.API_BASE_URL.replace(/\/+$/, '');
+  }
+
   // En producción, usar la URL de tu API en Render
-  // IMPORTANTE: Reemplaza 'zorem-api' con el nombre real de tu servicio en Render
-  // Ejemplo: https://zorem-api.onrender.com
-  const apiServiceName = 'zorem-api'; // Cambia esto por el nombre de tu servicio en Render
-  
+  const apiServiceName = 'zorem-api';
+
   // Si estás usando Render
-  if (window.location.hostname.includes('render.com') || window.location.hostname.includes('onrender.com')) {
+  if (hostname.includes('render.com') || hostname.includes('onrender.com')) {
     return `https://${apiServiceName}.onrender.com`;
   }
-  
-  // Si tienes un dominio personalizado, ajusta esto
-  // Ejemplo: return 'https://api.tudominio.com';
-  
-  // Fallback: asume que la API está en el mismo dominio
-  return window.location.origin;
+
+  // Dominio personalizado: usar api.<tu-dominio>
+  const baseDomain = hostname.startsWith('www.') ? hostname.slice(4) : hostname;
+  return `https://api.${baseDomain}`;
 }
 
 export const config = {
   apiBaseUrl: getApiBaseUrl()
 };
-

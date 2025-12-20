@@ -6,10 +6,27 @@ import { generateToken, verifyMagicLinkToken } from '../middlewares/auth.js';
 import { magicLinkLimiter } from '../middlewares/rateLimit.js';
 import { verifyAuth } from '../middlewares/auth.js';
 import { config } from '../config/env.js';
+import { sendEmail } from '../lib/email.js';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 
 const router = express.Router();
+
+function renderLinkEmail({ title, intro, ctaText, ctaUrl }) {
+  const safeUrl = String(ctaUrl);
+
+  return `
+    <div style="font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px">
+      <h2 style="margin:0 0 12px;color:#111">${title}</h2>
+      <p style="margin:0 0 16px;color:#444;line-height:1.5">${intro}</p>
+      <p style="margin:0 0 20px">
+        <a href="${safeUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 16px;border-radius:10px">${ctaText}</a>
+      </p>
+      <p style="margin:0 0 8px;color:#666;font-size:12px">If the button doesn’t work, copy and paste this link:</p>
+      <p style="margin:0;color:#111;font-size:12px;word-break:break-all">${safeUrl}</p>
+    </div>
+  `;
+}
 
 /**
  * POST /api/auth/request-magic-link
@@ -59,7 +76,7 @@ router.post('/request-magic-link', magicLinkLimiter, async (req, res) => {
     const token = generateToken(userId);
 
     // Generar magic link
-    const magicLink = `${config.frontendUrl}/auth/verify?token=${token}`;
+    const magicLink = `${config.frontendUrl}/auth.html?token=${token}`;
 
     // En un entorno real, aquí enviarías el email
     // Por ahora, en desarrollo, devolvemos el link directamente
@@ -74,10 +91,25 @@ router.post('/request-magic-link', magicLinkLimiter, async (req, res) => {
         warning: 'In production, the link will be sent via email only'
       });
     } else {
-      // En producción: simular envío de email
-      // TODO: Integrar servicio de email (SendGrid, AWS SES, etc.)
-      console.log(`[PRODUCTION] Magic link for ${emailLower}: ${magicLink}`);
-      
+      try {
+        await sendEmail({
+          to: emailLower,
+          subject: 'Your Zorem sign-in link',
+          html: renderLinkEmail({
+            title: 'Sign in to Zorem',
+            intro: 'Use this link to sign in. This link expires soon for your security.',
+            ctaText: 'Sign in',
+            ctaUrl: magicLink,
+          }),
+          text: `Sign in to Zorem: ${magicLink}`,
+        });
+      } catch (emailError) {
+        console.error('Failed to send magic link email:', emailError);
+        return res.status(500).json({
+          error: 'Failed to send magic link email'
+        });
+      }
+
       res.json({
         message: 'If an account exists with this email, a magic link has been sent'
       });
@@ -113,6 +145,12 @@ router.get('/verify-magic-link', async (req, res) => {
         error: 'Invalid or expired token' 
       });
     }
+
+    // Marcar email como verificado (demostró acceso al correo)
+    await query(
+      'UPDATE users SET email_verified = true WHERE id = $1',
+      [user.userId]
+    );
 
     // Generar nuevo token JWT para la sesión
     const sessionToken = generateToken(user.userId);
@@ -259,9 +297,25 @@ router.post('/sign-up', async (req, res) => {
         }
       });
     } else {
-      // In production, require email verification
-      // TODO: Send verification email with verificationLink
-      console.log(`[PRODUCTION] Email verification link for ${emailLower}: ${verificationLink}`);
+      try {
+        await sendEmail({
+          to: emailLower,
+          subject: 'Verify your email for Zorem',
+          html: renderLinkEmail({
+            title: 'Verify your email',
+            intro: 'Thanks for signing up! Please verify your email to activate your account.',
+            ctaText: 'Verify email',
+            ctaUrl: verificationLink,
+          }),
+          text: `Verify your email: ${verificationLink}`,
+        });
+      } catch (emailError) {
+        console.error('Failed to send verification email:', emailError);
+        return res.status(500).json({
+          error: 'Failed to send verification email'
+        });
+      }
+
       res.status(201).json({
         message: 'Account created. Please check your email to verify your account.',
         requires_verification: true
@@ -294,7 +348,7 @@ router.post('/sign-in', async (req, res) => {
 
     // Find user
     const userResult = await query(
-      'SELECT id, email, password_hash, two_factor_enabled FROM users WHERE email = $1',
+      'SELECT id, email, password_hash, email_verified, two_factor_enabled FROM users WHERE email = $1',
       [emailLower]
     );
 
@@ -318,6 +372,14 @@ router.post('/sign-in', async (req, res) => {
     if (!passwordValid) {
       return res.status(401).json({ 
         error: 'Invalid email or password' 
+      });
+    }
+
+    // In production, require email verification for password sign-in
+    if (config.nodeEnv === 'production' && user.email_verified !== true) {
+      return res.status(403).json({
+        error: 'Please verify your email before signing in',
+        requires_verification: true
       });
     }
 
@@ -437,22 +499,25 @@ router.post('/verify-2fa', async (req, res) => {
  */
 router.get('/google/url', async (req, res) => {
   try {
-    // For now, return a placeholder URL
-    // In production, implement proper Google OAuth flow
-    const clientId = config.googleClientId || 'YOUR_GOOGLE_CLIENT_ID';
-    const redirectUri = `${config.frontendUrl}/auth.html`;
+    if (!config.googleClientId || !config.googleRedirectUri) {
+      return res.status(501).json({ 
+        error: 'Google OAuth is not configured' 
+      });
+    }
+
     const scope = 'openid email profile';
     const state = jwt.sign({ type: 'oauth_state' }, config.jwtSecret, { expiresIn: '10m' });
 
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${clientId}&` +
-      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `response_type=code&` +
-      `scope=${encodeURIComponent(scope)}&` +
-      `state=${state}`;
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authUrl.searchParams.set('client_id', config.googleClientId);
+    authUrl.searchParams.set('redirect_uri', config.googleRedirectUri);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('scope', scope);
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('prompt', 'select_account');
 
     res.json({
-      auth_url: authUrl
+      auth_url: authUrl.toString()
     });
 
   } catch (error) {
@@ -468,40 +533,143 @@ router.get('/google/url', async (req, res) => {
  * Handle Google OAuth callback
  */
 router.get('/google/callback', async (req, res) => {
+  const redirectWithError = (code) => {
+    const url = new URL(`${config.frontendUrl}/auth.html`);
+    url.searchParams.set('oauth_error', code);
+    return res.redirect(url.toString());
+  };
+
   try {
-    const { code, state, token } = req.query;
+    const { code, state, error } = req.query;
 
-    // For now, in development, accept token directly
-    if (token && config.nodeEnv === 'development') {
-      try {
-        const decoded = jwt.verify(token, config.jwtSecret);
-        if (decoded.type === 'oauth_user') {
-          const userResult = await query(
-            'SELECT id, email FROM users WHERE id = $1',
-            [decoded.userId]
-          );
-
-          if (userResult.rows.length > 0) {
-            const sessionToken = generateToken(userResult.rows[0].id);
-            return res.redirect(`${config.frontendUrl}/auth.html?oauth_token=${sessionToken}`);
-          }
-        }
-      } catch (error) {
-        // Invalid token
-      }
+    if (error) {
+      return redirectWithError(String(error));
     }
 
-    // In production, exchange code for token with Google
-    // TODO: Implement full OAuth flow
-    res.status(501).json({ 
-      error: 'Google OAuth not fully implemented yet' 
+    if (!code || !state) {
+      return redirectWithError('missing_params');
+    }
+
+    if (!config.googleClientId || !config.googleClientSecret || !config.googleRedirectUri) {
+      return redirectWithError('oauth_not_configured');
+    }
+
+    // Verify state
+    try {
+      const decoded = jwt.verify(String(state), config.jwtSecret);
+      if (decoded.type !== 'oauth_state') {
+        return redirectWithError('invalid_state');
+      }
+    } catch (err) {
+      return redirectWithError('invalid_state');
+    }
+
+    // Exchange code for tokens
+    const tokenParams = new URLSearchParams({
+      code: String(code),
+      client_id: config.googleClientId,
+      client_secret: config.googleClientSecret,
+      redirect_uri: config.googleRedirectUri,
+      grant_type: 'authorization_code',
     });
+
+    const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: tokenParams.toString(),
+    });
+
+    if (!tokenResp.ok) {
+      const text = await tokenResp.text();
+      console.error('Google token exchange failed:', tokenResp.status, text);
+      return redirectWithError('token_exchange_failed');
+    }
+
+    const tokenData = await tokenResp.json();
+    const accessToken = tokenData.access_token;
+
+    if (!accessToken) {
+      return redirectWithError('missing_access_token');
+    }
+
+    // Fetch user info
+    const userInfoResp = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!userInfoResp.ok) {
+      const text = await userInfoResp.text();
+      console.error('Google userinfo failed:', userInfoResp.status, text);
+      return redirectWithError('userinfo_failed');
+    }
+
+    const userInfo = await userInfoResp.json();
+    const googleId = userInfo.sub;
+    const email = userInfo.email;
+
+    if (!googleId || !email) {
+      return redirectWithError('missing_user_info');
+    }
+
+    const emailLower = String(email).toLowerCase().trim();
+
+    // Upsert user
+    let userResult = await query(
+      'SELECT id, email, google_id FROM users WHERE google_id = $1',
+      [googleId]
+    );
+
+    if (userResult.rows.length === 0) {
+      const byEmail = await query(
+        'SELECT id, email, google_id FROM users WHERE email = $1',
+        [emailLower]
+      );
+
+      if (byEmail.rows.length === 0) {
+        userResult = await query(
+          `INSERT INTO users (email, google_id, email_verified)
+           VALUES ($1, $2, true)
+           RETURNING id, email, google_id`,
+          [emailLower, googleId]
+        );
+      } else {
+        const existing = byEmail.rows[0];
+
+        if (existing.google_id && existing.google_id !== googleId) {
+          return redirectWithError('email_already_linked');
+        }
+
+        userResult = await query(
+          `UPDATE users
+           SET google_id = $1,
+               email_verified = true
+           WHERE id = $2
+           RETURNING id, email, google_id`,
+          [googleId, existing.id]
+        );
+      }
+    } else {
+      await query(
+        'UPDATE users SET email_verified = true WHERE id = $1',
+        [userResult.rows[0].id]
+      );
+    }
+
+    const user = userResult.rows[0];
+    const sessionToken = generateToken(user.id);
+
+    const redirectUrl = new URL(`${config.frontendUrl}/auth.html`);
+    redirectUrl.searchParams.set('oauth_token', sessionToken);
+
+    return res.redirect(redirectUrl.toString());
 
   } catch (error) {
     console.error('Error handling Google OAuth callback:', error);
-    res.status(500).json({ 
-      error: 'Failed to complete OAuth sign in' 
-    });
+    return redirectWithError('oauth_failed');
   }
 });
 
