@@ -2,7 +2,7 @@
 
 ## Estado Actual
 ✅ **Completado:**
-- `apps/web/landing.html` - Landing page completa y funcional
+- `apps/web/index.html` - Landing page completa y funcional
 
 ⏳ **Pendiente:**
 - Todo el backend (API REST)
@@ -119,7 +119,7 @@
 - Contador de tiempo restante
 
 ### 3.2 Viewer Flow - Ingresar Código
-**Archivo:** `apps/web/landing.html` (ya existe, conectar funcionalidad)
+**Archivo:** `apps/web/index.html` (ya existe, conectar funcionalidad)
 
 **Funcionalidad:**
 - Input de código ya existe en el hero

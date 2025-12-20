@@ -29,9 +29,9 @@ const server = http.createServer((req, res) => {
   // Parse URL and remove query string
   let urlPath = req.url.split('?')[0];
   
-  // Default to landing.html for root
+  // Default to index.html for root
   if (urlPath === '/' || urlPath === '') {
-    urlPath = '/landing.html';
+    urlPath = '/index.html';
   }
   
   // Remove leading slash and build file path
