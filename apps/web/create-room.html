@@ -348,7 +348,8 @@
                     // Store room info
                     createdRoomId = result.room_id;
                     createdRoomCode = result.code;
-                    createdRoomLink = result.link;
+                    // Viewer invite link: goes through nickname flow (works in incognito)
+                    createdRoomLink = `${window.location.origin}/nickname.html?code=${result.code}`;
                     createdRoomQr = result.qr_data;
 
                     // Save room ID for later use

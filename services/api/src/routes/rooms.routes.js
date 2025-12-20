@@ -61,8 +61,8 @@ router.post('/', verifyAuth, roomCreationLimiter, async (req, res) => {
 
     const room = roomResult.rows[0];
 
-    // Generar link directo
-    const link = `${config.frontendUrl}/room?code=${code}`;
+    // Generar link directo (viewer flow: code -> nickname -> room)
+    const link = `${config.frontendUrl}/nickname.html?code=${code}`;
 
     // Generar QR code
     let qrDataUrl = null;
