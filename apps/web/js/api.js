@@ -238,11 +238,12 @@ export const storiesAPI = {
     });
   },
 
-  async getUploadUrl(roomId, mediaType, fileSize) {
+  async getUploadUrl(roomId, mediaType, fileSize, contentType = null) {
     const body = {
       room_id: roomId,
       media_type: mediaType,
       file_size: fileSize,
+      ...(contentType ? { content_type: contentType } : {}),
     };
 
     // Add viewer_hash if available (for viewers)

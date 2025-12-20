@@ -373,7 +373,7 @@
                 const mediaType = selectedFile.type.startsWith('image/') ? 'image' : 'video';
 
                 // Get upload URL (will use auth token if owner, or viewer_hash if viewer)
-                const uploadData = await storiesAPI.getUploadUrl(roomId, mediaType, selectedFile.size);
+                const uploadData = await storiesAPI.getUploadUrl(roomId, mediaType, selectedFile.size, selectedFile.type);
 
                 // Upload to S3/R2
                 const uploadResponse = await fetch(uploadData.upload_url, {

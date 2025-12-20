@@ -12,6 +12,9 @@ import viewerRoutes from './routes/viewer.routes.js';
 
 const app = express();
 
+// Render (and most PaaS) run behind a proxy and set X-Forwarded-* headers
+app.set('trust proxy', 1);
+
 // Middlewares
 app.use(corsMiddleware);
 app.use(express.json());

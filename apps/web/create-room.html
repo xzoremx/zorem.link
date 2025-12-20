@@ -451,7 +451,7 @@
                     const mediaType = selectedFirstStory.type.startsWith('image/') ? 'image' : 'video';
 
                     // Get upload URL
-                    const uploadData = await storiesAPI.getUploadUrl(createdRoomId, mediaType, selectedFirstStory.size);
+                    const uploadData = await storiesAPI.getUploadUrl(createdRoomId, mediaType, selectedFirstStory.size, selectedFirstStory.type);
 
                     // Upload to S3/R2
                     const uploadResponse = await fetch(uploadData.upload_url, {

@@ -8,6 +8,50 @@ import { validateViewerHash } from '../lib/crypto.js';
 
 const router = express.Router();
 
+function resolveUploadContent(mediaType, requestedContentType) {
+  const normalized = typeof requestedContentType === 'string'
+    ? requestedContentType.toLowerCase().trim()
+    : '';
+
+  const imageTypes = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+  };
+
+  const videoTypes = {
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+    'video/quicktime': 'mov',
+  };
+
+  if (!normalized) {
+    return mediaType === 'image'
+      ? { contentType: 'image/jpeg', fileExtension: 'jpg' }
+      : { contentType: 'video/mp4', fileExtension: 'mp4' };
+  }
+
+  if (mediaType === 'image') {
+    const ext = imageTypes[normalized];
+    if (!ext) {
+      throw new Error('Unsupported image content_type');
+    }
+    return { contentType: normalized, fileExtension: ext };
+  }
+
+  if (mediaType === 'video') {
+    const ext = videoTypes[normalized];
+    if (!ext) {
+      throw new Error('Unsupported video content_type');
+    }
+    return { contentType: normalized, fileExtension: ext };
+  }
+
+  throw new Error('Invalid media_type');
+}
+
 /**
  * GET /api/stories/room/:roomId
  * Listar todas las stories de una sala (orden cronológico)
@@ -122,7 +166,7 @@ router.get('/room/:roomId', async (req, res) => {
  */
 router.post('/upload-url', async (req, res) => {
   try {
-    const { room_id, media_type, file_size } = req.body;
+    const { room_id, media_type, file_size, content_type } = req.body;
     const authHeader = req.headers.authorization;
     const viewerHash = req.body.viewer_hash || req.headers['x-viewer-hash'];
 
@@ -221,14 +265,17 @@ router.post('/upload-url', async (req, res) => {
       });
     }
 
-    // Generar media key
-    const fileExtension = media_type === 'image' ? 'jpg' : 'mp4';
-    const mediaKey = generateMediaKey(room_id, media_type, fileExtension);
+    let uploadContent;
+    try {
+      uploadContent = resolveUploadContent(media_type, content_type);
+    } catch (err) {
+      return res.status(400).json({
+        error: err.message || 'Invalid content_type'
+      });
+    }
 
-    // Determinar content type
-    const contentType = media_type === 'image' 
-      ? 'image/jpeg' 
-      : 'video/mp4';
+    const mediaKey = generateMediaKey(room_id, media_type, uploadContent.fileExtension);
+    const contentType = uploadContent.contentType;
 
     // Generar presigned URL
     if (!config.awsAccessKeyId || !config.s3BucketName) {
