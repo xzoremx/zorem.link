@@ -402,6 +402,22 @@
                 // Get upload URL (will use auth token if owner, or viewer_hash if viewer)
                 const uploadData = await storiesAPI.getUploadUrl(roomId, mediaType, selectedFile.size, selectedFile.type);
 
+                async function getUploadErrorDetails(response) {
+                    try {
+                        const text = await response.text();
+                        const codeMatch = text.match(/<Code>([^<]+)<\/Code>/);
+                        const messageMatch = text.match(/<Message>([^<]+)<\/Message>/);
+                        if (codeMatch || messageMatch) {
+                            const code = codeMatch ? codeMatch[1] : '';
+                            const message = messageMatch ? messageMatch[1] : '';
+                            return [code, message].filter(Boolean).join(': ');
+                        }
+                        return text ? text.slice(0, 200) : '';
+                    } catch (e) {
+                        return '';
+                    }
+                }
+
                 // Upload to S3/R2
                 const uploadResponse = await fetch(uploadData.upload_url, {
                     method: 'PUT',
@@ -412,7 +428,9 @@
                 });
 
                 if (!uploadResponse.ok) {
-                    throw new Error('Upload failed');
+                    const details = await getUploadErrorDetails(uploadResponse);
+                    const suffix = details ? `: ${details}` : '';
+                    throw new Error(`Upload failed (HTTP ${uploadResponse.status})${suffix}`);
                 }
 
                 // Confirm story creation (will use auth token if owner, or viewer_hash if viewer)

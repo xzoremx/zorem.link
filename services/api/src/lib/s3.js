@@ -12,6 +12,8 @@ function getS3Client() {
   if (!s3Client) {
     const clientConfig = {
       region: config.awsRegion,
+      // Avoid injecting checksum params into presigned PUT URLs (breaks browser uploads)
+      requestChecksumCalculation: 'WHEN_REQUIRED',
       credentials: {
         accessKeyId: config.awsAccessKeyId,
         secretAccessKey: config.awsSecretAccessKey,
