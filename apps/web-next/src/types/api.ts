@@ -37,19 +37,40 @@ export interface MagicLinkResponse {
 export interface Room {
     id: string;
     code: string;
-    creator_id: string;
-    duration: string;
+    creator_id?: string;
+    duration?: string;
     allow_uploads: boolean;
     expires_at: string;
     created_at: string;
     qr_data?: string;
+    is_active?: boolean;
+}
+
+// Extended room data returned by list endpoint
+export interface RoomListItem {
+    room_id: string;
+    code: string;
+    expires_at: string;
+    hours_remaining: number;
+    allow_uploads: boolean;
+    is_active: boolean;
+    viewer_count: number;
+    story_count: number;
+    created_at: string;
+}
+
+export interface RoomsListResponse {
+    rooms: RoomListItem[];
 }
 
 export interface CreateRoomResponse {
     room_id: string;
     code: string;
-    qr_data: string;
+    link: string;
+    qr_data: string | null;
     expires_at: string;
+    allow_uploads: boolean;
+    duration: string;
 }
 
 // Story Types

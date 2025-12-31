@@ -10,6 +10,7 @@ import type {
     SignUpResponse,
     MagicLinkResponse,
     Room,
+    RoomsListResponse,
     CreateRoomResponse,
     Story,
     UploadUrlResponse,
@@ -237,7 +238,7 @@ export const roomsAPI = {
     getDetails: (roomId: string): Promise<Room> =>
         apiRequest(`/api/rooms/id/${encodeURIComponent(roomId)}`),
 
-    list: (): Promise<{ rooms: Room[] }> =>
+    list: (): Promise<RoomsListResponse> =>
         apiRequest('/api/rooms'),
 
     close: (roomId: string): Promise<{ message: string }> =>

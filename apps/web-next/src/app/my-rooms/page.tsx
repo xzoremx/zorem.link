@@ -3,28 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useAuth } from '@/context';
 import { roomsAPI, storage } from '@/lib';
 import { Button } from '@/components';
-
-interface RoomData {
-    room_id: string;
-    code: string;
-    expires_at: string;
-    hours_remaining: number;
-    allow_uploads: boolean;
-    is_active: boolean;
-    viewer_count: number;
-    story_count: number;
-    created_at: string;
-}
+import type { RoomListItem } from '@/types';
 
 export default function MyRoomsPage() {
     const router = useRouter();
     const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
     
-    const [rooms, setRooms] = useState<RoomData[]>([]);
+    const [rooms, setRooms] = useState<RoomListItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -68,7 +56,7 @@ export default function MyRoomsPage() {
         }
     };
 
-    const getStatus = (room: RoomData) => {
+    const getStatus = (room: RoomListItem) => {
         const now = Date.now();
         const expiresAt = new Date(room.expires_at).getTime();
         const expired = Number.isFinite(expiresAt) ? expiresAt <= now : false;
@@ -78,7 +66,7 @@ export default function MyRoomsPage() {
         return 'ACTIVE';
     };
 
-    const getExpiresLabel = (room: RoomData, status: string) => {
+    const getExpiresLabel = (room: RoomListItem, status: string) => {
         if (status === 'ACTIVE') {
             return room.hours_remaining > 0 
                 ? `Expires in ~${room.hours_remaining}h` 
@@ -118,7 +106,7 @@ export default function MyRoomsPage() {
         }
     };
 
-    const openRoom = (room: RoomData) => {
+    const openRoom = (room: RoomListItem) => {
         // Store room ID and navigate to room
         storage.setRoomId(room.room_id);
         router.push('/room');
