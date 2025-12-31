@@ -1,4 +1,18 @@
 services:
+  # Frontend - Next.js
+  - type: web
+    name: zorem-web
+    env: node
+    plan: free
+    buildCommand: cd apps/web-next && npm install && npm run build
+    startCommand: cd apps/web-next && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: https://api.zorem.link
+
+  # Backend - Express API
   - type: web
     name: zorem-api
     env: node
