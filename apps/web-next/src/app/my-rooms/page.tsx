@@ -5,17 +5,29 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context';
-import { roomsAPI } from '@/lib';
+import { roomsAPI, storage } from '@/lib';
 import { Button } from '@/components';
-import type { Room } from '@/types';
+
+interface RoomData {
+    room_id: string;
+    code: string;
+    expires_at: string;
+    hours_remaining: number;
+    allow_uploads: boolean;
+    is_active: boolean;
+    viewer_count: number;
+    story_count: number;
+    created_at: string;
+}
 
 export default function MyRoomsPage() {
     const router = useRouter();
     const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
     
-    const [rooms, setRooms] = useState<Room[]>([]);
+    const [rooms, setRooms] = useState<RoomData[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
+    const [copiedId, setCopiedId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
@@ -29,6 +41,8 @@ export default function MyRoomsPage() {
     }, [authLoading, isAuthenticated, router]);
 
     const loadRooms = async () => {
+        setIsLoading(true);
+        setError('');
         try {
             const result = await roomsAPI.list();
             setRooms(result.rooms || []);
@@ -39,19 +53,85 @@ export default function MyRoomsPage() {
         }
     };
 
-    const formatExpiry = (expiresAt: string) => {
-        const expiry = new Date(expiresAt);
-        const now = new Date();
-        const diff = expiry.getTime() - now.getTime();
-        
-        if (diff < 0) return 'Expired';
-        
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        
-        if (hours > 0) return `${hours}h ${minutes}m left`;
-        return `${minutes}m left`;
+    const formatDate = (iso: string) => {
+        try {
+            const d = new Date(iso);
+            return d.toLocaleString(undefined, { 
+                year: 'numeric', 
+                month: 'short', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        } catch {
+            return iso;
+        }
     };
+
+    const getStatus = (room: RoomData) => {
+        const now = Date.now();
+        const expiresAt = new Date(room.expires_at).getTime();
+        const expired = Number.isFinite(expiresAt) ? expiresAt <= now : false;
+
+        if (!room.is_active) return 'CLOSED';
+        if (expired) return 'EXPIRED';
+        return 'ACTIVE';
+    };
+
+    const getExpiresLabel = (room: RoomData, status: string) => {
+        if (status === 'ACTIVE') {
+            return room.hours_remaining > 0 
+                ? `Expires in ~${room.hours_remaining}h` 
+                : 'Expiring soon';
+        }
+        if (status === 'EXPIRED') {
+            return `Expired: ${formatDate(room.expires_at)}`;
+        }
+        return `Closed: ${formatDate(room.expires_at)}`;
+    };
+
+    const buildInviteLink = (code: string) => {
+        if (typeof window !== 'undefined') {
+            return `${window.location.origin}/nickname?code=${encodeURIComponent(code)}`;
+        }
+        return `/nickname?code=${encodeURIComponent(code)}`;
+    };
+
+    const copyToClipboard = async (text: string, id: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedId(id);
+            setTimeout(() => setCopiedId(null), 1500);
+        } catch {
+            // Fallback
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            setCopiedId(id);
+            setTimeout(() => setCopiedId(null), 1500);
+        }
+    };
+
+    const openRoom = (room: RoomData) => {
+        // Store room ID and navigate to room
+        storage.setRoomId(room.room_id);
+        router.push('/room');
+    };
+
+    // Separate active and past rooms
+    const now = Date.now();
+    const activeRooms = rooms.filter(r => 
+        r.is_active && new Date(r.expires_at).getTime() > now
+    );
+    const pastRooms = rooms.filter(r => 
+        !r.is_active || new Date(r.expires_at).getTime() <= now
+    );
 
     if (authLoading || (!isAuthenticated && !authLoading)) {
         return (
@@ -62,85 +142,200 @@ export default function MyRoomsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#050505]">
+        <div className="min-h-screen bg-[#050505] p-4">
             {/* Background */}
             <div className="fixed inset-0 z-0 pointer-events-none">
                 <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[80%] h-[600px] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-violet-900/20 via-[#050505] to-[#050505] blur-[100px] opacity-50" />
             </div>
 
-            {/* Header */}
-            <header className="relative z-10 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl">
-                <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2">
-                        <Image src="/logo.png" alt="Zorem" width={32} height={32} className="logo-spin" />
+            {/* Navigation */}
+            <nav className="relative z-10 max-w-5xl mx-auto mb-8 flex items-center justify-between">
+                <Link href="/" className="inline-flex items-center gap-2 text-neutral-400 hover:text-white transition-colors">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    <span>Home</span>
+                </Link>
+                <div className="flex items-center gap-3">
+                    <Link href="/create-room" className="text-sm text-neutral-400 hover:text-white transition-colors">
+                        Create Room
                     </Link>
-                    <div className="flex items-center gap-4">
-                        <span className="text-sm text-neutral-500 hidden sm:block">{user?.email}</span>
-                        <button onClick={logout} className="text-sm text-neutral-400 hover:text-white transition-colors">
-                            Log out
-                        </button>
-                    </div>
+                    <span className="text-sm text-neutral-500 max-w-[220px] truncate hidden sm:block" title={user?.email}>
+                        {user?.email}
+                    </span>
+                    <button 
+                        onClick={logout} 
+                        className="text-sm text-neutral-400 hover:text-white transition-colors"
+                    >
+                        Log out
+                    </button>
                 </div>
-            </header>
+            </nav>
 
-            {/* Content */}
-            <main className="relative z-10 max-w-4xl mx-auto px-6 py-12">
-                <div className="flex items-center justify-between mb-8">
-                    <h1 className="text-3xl font-medium text-white">My Rooms</h1>
-                    <Link href="/create-room">
-                        <Button size="sm">
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                            </svg>
-                            Create Room
-                        </Button>
-                    </Link>
+            {/* Main Content */}
+            <main className="relative z-10 max-w-5xl mx-auto">
+                <div className="text-center mb-8 animate-[fadeUp_0.8s_ease-out_forwards]">
+                    <h1 className="text-4xl md:text-5xl font-medium tracking-tight mb-3 text-white">My Rooms</h1>
+                    <p className="text-neutral-400">Your active rooms and recent history</p>
                 </div>
 
-                {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
-
-                {isLoading ? (
-                    <div className="text-center py-12 text-neutral-400">Loading rooms...</div>
-                ) : rooms.length === 0 ? (
-                    <div className="text-center py-12">
-                        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
-                            <svg className="w-8 h-8 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                <rect x="3" y="3" width="18" height="18" rx="2" />
-                                <path d="M12 8v8M8 12h8" />
-                            </svg>
+                {/* Loading */}
+                {isLoading && (
+                    <div className="glass rounded-2xl p-8 text-center">
+                        <div className="text-neutral-400">Loading your rooms...</div>
+                        <div className="text-xs text-neutral-600 mt-2">
+                            If you're on Render free tier, the API may take ~30–60s to wake up.
                         </div>
-                        <h2 className="text-lg font-medium text-white mb-2">No rooms yet</h2>
-                        <p className="text-neutral-400 text-sm mb-6">Create your first room to start sharing stories</p>
-                        <Link href="/create-room">
-                            <Button>Create Your First Room</Button>
-                        </Link>
                     </div>
-                ) : (
-                    <div className="grid gap-4">
-                        {rooms.map((room) => (
-                            <div key={room.id} className="glass rounded-xl p-6 flex items-center justify-between">
+                )}
+
+                {/* Error */}
+                {error && !isLoading && (
+                    <div className="glass rounded-2xl p-8 text-center">
+                        <div className="text-red-400 font-medium mb-2">Couldn't load your rooms</div>
+                        <div className="text-neutral-400 text-sm mb-6">{error}</div>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <Button onClick={loadRooms}>Retry</Button>
+                            <Link href="/create-room">
+                                <Button variant="outline">Create a room</Button>
+                            </Link>
+                        </div>
+                    </div>
+                )}
+
+                {/* Content */}
+                {!isLoading && !error && (
+                    <div className="space-y-6">
+                        {/* Active Rooms */}
+                        <div className="glass rounded-2xl p-6 md:p-8">
+                            <div className="flex items-center justify-between gap-4 mb-6">
                                 <div>
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <span className="text-2xl font-mono text-white">{room.code}</span>
-                                        <span className={`text-xs px-2 py-1 rounded-full ${
-                                            new Date(room.expires_at) > new Date() 
-                                                ? 'bg-emerald-500/20 text-emerald-400'
-                                                : 'bg-red-500/20 text-red-400'
-                                        }`}>
-                                            {formatExpiry(room.expires_at)}
-                                        </span>
-                                    </div>
-                                    <p className="text-sm text-neutral-500">
-                                        Created {new Date(room.created_at).toLocaleDateString()}
-                                    </p>
+                                    <h2 className="text-lg font-medium text-white">Active</h2>
+                                    <p className="text-sm text-neutral-500">Rooms that are still live</p>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(room.code)}>
-                                        Copy Code
-                                    </Button>
-                                </div>
+                                <span className="text-xs text-neutral-500">
+                                    {activeRooms.length} room{activeRooms.length !== 1 ? 's' : ''}
+                                </span>
                             </div>
-                        ))}
+
+                            {activeRooms.length === 0 ? (
+                                <div className="text-center text-neutral-500 text-sm py-8">
+                                    No active rooms yet.
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {activeRooms.map((room) => {
+                                        const status = getStatus(room);
+                                        return (
+                                            <div key={room.room_id} className="glass rounded-2xl p-5">
+                                                <div className="flex items-start justify-between gap-4">
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs font-medium tracking-wider text-emerald-400">
+                                                                {status}
+                                                            </span>
+                                                            <span className="text-xs text-neutral-600">•</span>
+                                                            <span className="text-xs text-neutral-500">
+                                                                {getExpiresLabel(room, status)}
+                                                            </span>
+                                                        </div>
+                                                        <div className="mt-2 text-3xl font-mono font-bold text-white">
+                                                            {room.code}
+                                                        </div>
+                                                        <div className="mt-2 text-xs text-neutral-500">
+                                                            Created: {formatDate(room.created_at)} • 
+                                                            Uploads: {room.allow_uploads ? 'on' : 'off'} • 
+                                                            Stories: {room.story_count} • 
+                                                            Viewers: {room.viewer_count}
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => openRoom(room)}
+                                                        className="shrink-0 h-10 px-4 rounded-xl bg-white text-black hover:bg-neutral-200 font-medium"
+                                                    >
+                                                        Open
+                                                    </button>
+                                                </div>
+
+                                                <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                                                    <button 
+                                                        onClick={() => copyToClipboard(room.code, `code-${room.room_id}`)}
+                                                        className="h-10 px-4 rounded-xl border border-white/10 hover:bg-white/5 text-sm font-medium text-white"
+                                                    >
+                                                        {copiedId === `code-${room.room_id}` ? 'Copied!' : 'Copy code'}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => copyToClipboard(buildInviteLink(room.code), `link-${room.room_id}`)}
+                                                        className="h-10 px-4 rounded-xl border border-white/10 hover:bg-white/5 text-sm font-medium text-white"
+                                                    >
+                                                        {copiedId === `link-${room.room_id}` ? 'Copied!' : 'Copy invite link'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Past Rooms */}
+                        <div className="glass rounded-2xl p-6 md:p-8">
+                            <div className="flex items-center justify-between gap-4 mb-6">
+                                <div>
+                                    <h2 className="text-lg font-medium text-white">Past</h2>
+                                    <p className="text-sm text-neutral-500">Expired or closed rooms</p>
+                                </div>
+                                <span className="text-xs text-neutral-500">
+                                    {pastRooms.length} room{pastRooms.length !== 1 ? 's' : ''}
+                                </span>
+                            </div>
+
+                            {pastRooms.length === 0 ? (
+                                <div className="text-center text-neutral-500 text-sm py-8">
+                                    No past rooms.
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {pastRooms.map((room) => {
+                                        const status = getStatus(room);
+                                        return (
+                                            <div key={room.room_id} className="glass rounded-2xl p-5 opacity-60">
+                                                <div className="flex items-start justify-between gap-4">
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-xs font-medium tracking-wider ${
+                                                                status === 'EXPIRED' ? 'text-amber-400' : 'text-red-400'
+                                                            }`}>
+                                                                {status}
+                                                            </span>
+                                                            <span className="text-xs text-neutral-600">•</span>
+                                                            <span className="text-xs text-neutral-500">
+                                                                {getExpiresLabel(room, status)}
+                                                            </span>
+                                                        </div>
+                                                        <div className="mt-2 text-3xl font-mono font-bold text-white">
+                                                            {room.code}
+                                                        </div>
+                                                        <div className="mt-2 text-xs text-neutral-500">
+                                                            Created: {formatDate(room.created_at)} • 
+                                                            Uploads: {room.allow_uploads ? 'on' : 'off'} • 
+                                                            Stories: {room.story_count} • 
+                                                            Viewers: {room.viewer_count}
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        disabled
+                                                        className="shrink-0 h-10 px-4 rounded-xl bg-white/10 text-white/60 font-medium cursor-not-allowed"
+                                                    >
+                                                        Unavailable
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
             </main>
