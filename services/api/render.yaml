@@ -3,7 +3,7 @@ services:
     name: zorem-api
     env: node
     plan: free  # Cambia a 'starter' ($7/mes) para mejor rendimiento en producción
-    buildCommand: cd services/api && npm install
+    buildCommand: cd services/api && npm install && npm run build
     startCommand: cd services/api && npm start
     envVars:
       - key: NODE_ENV
