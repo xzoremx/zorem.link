@@ -35,7 +35,7 @@ function NicknameForm() {
         try {
             const result = await viewerAPI.join(code, nickname.trim());
             storage.setViewerHash(result.viewer_hash);
-            storage.setRoomId(result.room.id);
+            storage.setRoomId(result.room_id);
             router.push('/room');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to join room');

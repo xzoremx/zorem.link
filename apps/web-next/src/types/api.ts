@@ -97,7 +97,11 @@ export interface ViewerSession {
 
 export interface JoinRoomResponse {
     viewer_hash: string;
-    room: Room;
+    room_id: string;
+    room_code: string;
+    allow_uploads: boolean;
+    expires_at: string;
+    nickname: string;
 }
 
 // API Error
