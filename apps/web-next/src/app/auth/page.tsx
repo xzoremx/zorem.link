@@ -25,17 +25,32 @@ function AuthForm() {
 
     // Handle OAuth callback (token in URL)
     useEffect(() => {
-        const token = searchParams.get('token');
+        // Check for both 'token' (magic link) and 'oauth_token' (Google OAuth)
+        const token = searchParams.get('token') || searchParams.get('oauth_token');
         const userEmail = searchParams.get('email');
-        const errorParam = searchParams.get('error');
+        const errorParam = searchParams.get('error') || searchParams.get('oauth_error');
+        const verifyToken = searchParams.get('verify');
 
         if (errorParam) {
             setError(decodeURIComponent(errorParam));
             return;
         }
 
+        // Handle email verification
+        if (verifyToken) {
+            authAPI.verifyEmail(verifyToken)
+                .then((result) => {
+                    login(result.token, result.user.email);
+                    router.push('/my-rooms');
+                })
+                .catch((err) => {
+                    setError(err instanceof Error ? err.message : 'Verification failed');
+                });
+            return;
+        }
+
         if (token) {
-            // Google OAuth callback - store token and redirect
+            // OAuth or Magic Link callback - store token and redirect
             login(token, userEmail || '');
             router.push('/my-rooms');
         }

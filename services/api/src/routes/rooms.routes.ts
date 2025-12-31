@@ -85,7 +85,7 @@ router.post(
         return;
       }
 
-      const link = `${config.frontendUrl}/nickname.html?code=${code}`;
+      const link = `${config.frontendUrl}/nickname?code=${code}`;
 
       let qrDataUrl: string | null = null;
       try {
