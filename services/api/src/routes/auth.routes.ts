@@ -97,7 +97,7 @@ router.post(
       }
 
       const token = generateToken(userId);
-      const magicLink = `${config.frontendUrl}/auth.html?token=${token}`;
+      const magicLink = `${config.frontendUrl}/auth?token=${token}`;
 
       if (config.nodeEnv === 'development') {
         res.json({
@@ -271,7 +271,7 @@ router.post('/sign-up', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const verificationLink = `${config.frontendUrl}/auth.html?verify=${verificationToken}`;
+    const verificationLink = `${config.frontendUrl}/auth?verify=${verificationToken}`;
 
     if (config.nodeEnv === 'development') {
       res.status(201).json({
@@ -480,7 +480,7 @@ router.get('/google/url', async (_req: Request, res: Response): Promise<void> =>
  */
 router.get('/google/callback', async (req: Request, res: Response): Promise<void> => {
   const redirectWithError = (code: string): void => {
-    const url = new URL(`${config.frontendUrl}/auth.html`);
+    const url = new URL(`${config.frontendUrl}/auth`);
     url.searchParams.set('oauth_error', code);
     res.redirect(url.toString());
   };
@@ -616,7 +616,7 @@ router.get('/google/callback', async (req: Request, res: Response): Promise<void
 
     const sessionToken = generateToken(user.id);
 
-    const redirectUrl = new URL(`${config.frontendUrl}/auth.html`);
+    const redirectUrl = new URL(`${config.frontendUrl}/auth`);
     redirectUrl.searchParams.set('oauth_token', sessionToken);
 
     res.redirect(redirectUrl.toString());
