@@ -29,8 +29,7 @@ export default function RoomPage() {
     const [allowUploads, setAllowUploads] = useState(false);
     const [userEmail, setUserEmail] = useState<string | null>(null);
     
-    // Image loading state
-    const [isMediaLoading, setIsMediaLoading] = useState(false);
+    // Preloaded images cache
     const preloadedImages = useRef<Set<string>>(new Set());
     
     // Like state
@@ -129,46 +128,29 @@ export default function RoomPage() {
         }
     }, [currentIndex, stories, viewerHash]);
 
-    // Preload adjacent images for smooth navigation
+    // Preload ALL images when stories load for instant navigation
     useEffect(() => {
         if (stories.length === 0) return;
 
-        const preloadImage = (url: string) => {
-            if (!url || preloadedImages.current.has(url)) return;
-            
-            const img = new window.Image();
-            img.src = url;
-            img.onload = () => {
-                preloadedImages.current.add(url);
-            };
-        };
-
-        // Preload current, previous, and next images
-        const indicesToPreload = [
-            currentIndex - 1,
-            currentIndex,
-            currentIndex + 1,
-            currentIndex + 2, // Preload one extra ahead
-        ].filter(idx => idx >= 0 && idx < stories.length);
-
-        indicesToPreload.forEach(idx => {
-            const story = stories[idx];
-            if (story?.media_url && story.media_type === 'image') {
-                preloadImage(story.media_url);
+        stories.forEach(story => {
+            if (story?.media_url && story.media_type === 'image' && !preloadedImages.current.has(story.media_url)) {
+                const img = new window.Image();
+                img.src = story.media_url;
+                img.onload = () => {
+                    preloadedImages.current.add(story.media_url);
+                };
             }
         });
-    }, [currentIndex, stories]);
+    }, [stories]);
 
     const goNext = () => {
         if (currentIndex < stories.length - 1) {
-            setIsMediaLoading(true);
             setCurrentIndex(currentIndex + 1);
         }
     };
 
     const goPrev = () => {
         if (currentIndex > 0) {
-            setIsMediaLoading(true);
             setCurrentIndex(currentIndex - 1);
         }
     };
@@ -399,22 +381,14 @@ export default function RoomPage() {
                         {/* Story media */}
                         {currentStory.media_url ? (
                             currentStory.media_type === 'image' ? (
-                                <>
-                                    {isMediaLoading && (
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                        </div>
-                                    )}
-                                    <img
-                                        key={currentStory.id}
-                                        src={currentStory.media_url}
-                                        alt="Story"
-                                        className={`max-w-full max-h-full object-contain transition-opacity duration-200 ${isMediaLoading ? 'opacity-0' : 'opacity-100'}`}
-                                        onLoadStart={() => setIsMediaLoading(true)}
-                                        onLoad={() => setIsMediaLoading(false)}
-                                        onError={() => setIsMediaLoading(false)}
-                                    />
-                                </>
+                                <img
+                                    key={currentStory.id}
+                                    src={currentStory.media_url}
+                                    alt="Story"
+                                    className="max-w-full max-h-full object-contain"
+                                    loading="eager"
+                                    decoding="async"
+                                />
                             ) : (
                                 <video
                                     key={currentStory.id}
