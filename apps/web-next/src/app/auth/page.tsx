@@ -32,6 +32,13 @@ function AuthForm() {
     const [tempToken, setTempToken] = useState('');
     const [twoFactorCode, setTwoFactorCode] = useState('');
 
+    // Check if we're processing a callback (OAuth, magic link, or verification)
+    const isProcessingCallback = !!(
+        searchParams.get('token') ||
+        searchParams.get('oauth_token') ||
+        searchParams.get('verify')
+    );
+
     // Handle OAuth callback (token in URL)
     useEffect(() => {
         const handleCallback = async () => {
@@ -67,6 +74,23 @@ function AuthForm() {
 
         handleCallback();
     }, [searchParams, login, router]);
+
+    // Show loading state while processing callback
+    if (isProcessingCallback && !error) {
+        return (
+            <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-0 pointer-events-none">
+                    <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[80%] h-[600px] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-violet-900/20 via-[#050505] to-[#050505] blur-[100px] opacity-50" />
+                </div>
+                <div className="relative z-10 text-center">
+                    <div className="flex justify-center mb-6">
+                        <Image src="/logo.png" alt="Zorem" width={48} height={48} className="animate-pulse" />
+                    </div>
+                    <p className="text-neutral-400">Signing you in...</p>
+                </div>
+            </div>
+        );
+    }
 
     const handleGoogleLogin = async () => {
         try {
