@@ -19,7 +19,7 @@ interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     isAuthenticated: boolean;
-    login: (token: string, email?: string) => void;
+    login: (token: string, email?: string) => Promise<void>;
     logout: () => void;
     refreshUser: () => Promise<void>;
 }
@@ -61,13 +61,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     }, []);
 
-    const login = useCallback((token: string, email?: string) => {
+    const login = useCallback(async (token: string, email?: string): Promise<void> => {
         storage.setAuthToken(token);
         if (email) {
             storage.setAuthEmail(email);
         }
-        // Trigger user refresh
-        refreshUser();
+        // Wait for user refresh to complete
+        await refreshUser();
     }, [refreshUser]);
 
     const logout = useCallback(() => {
