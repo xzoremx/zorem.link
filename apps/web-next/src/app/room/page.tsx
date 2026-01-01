@@ -29,6 +29,14 @@ export default function RoomPage() {
     const [allowUploads, setAllowUploads] = useState(false);
     const [userEmail, setUserEmail] = useState<string | null>(null);
     
+    // Image loading state
+    const [isMediaLoading, setIsMediaLoading] = useState(false);
+    const preloadedImages = useRef<Set<string>>(new Set());
+    
+    // Like state
+    const [isLiking, setIsLiking] = useState(false);
+    const [copiedLink, setCopiedLink] = useState(false);
+    
     const isLoadingRef = useRef(false);
 
     // Load stories function
@@ -121,14 +129,46 @@ export default function RoomPage() {
         }
     }, [currentIndex, stories, viewerHash]);
 
+    // Preload adjacent images for smooth navigation
+    useEffect(() => {
+        if (stories.length === 0) return;
+
+        const preloadImage = (url: string) => {
+            if (!url || preloadedImages.current.has(url)) return;
+            
+            const img = new window.Image();
+            img.src = url;
+            img.onload = () => {
+                preloadedImages.current.add(url);
+            };
+        };
+
+        // Preload current, previous, and next images
+        const indicesToPreload = [
+            currentIndex - 1,
+            currentIndex,
+            currentIndex + 1,
+            currentIndex + 2, // Preload one extra ahead
+        ].filter(idx => idx >= 0 && idx < stories.length);
+
+        indicesToPreload.forEach(idx => {
+            const story = stories[idx];
+            if (story?.media_url && story.media_type === 'image') {
+                preloadImage(story.media_url);
+            }
+        });
+    }, [currentIndex, stories]);
+
     const goNext = () => {
         if (currentIndex < stories.length - 1) {
+            setIsMediaLoading(true);
             setCurrentIndex(currentIndex + 1);
         }
     };
 
     const goPrev = () => {
         if (currentIndex > 0) {
+            setIsMediaLoading(true);
             setCurrentIndex(currentIndex - 1);
         }
     };
@@ -136,6 +176,48 @@ export default function RoomPage() {
     const handleLogout = () => {
         storage.clearSession();
         router.push('/');
+    };
+
+    const handleLike = async () => {
+        if (!currentStory || !viewerHash || isLiking) return;
+        
+        setIsLiking(true);
+        try {
+            const result = await storiesAPI.toggleLike(currentStory.id, viewerHash);
+            // Update the story in the list
+            setStories(prev => prev.map(story => 
+                story.id === currentStory.id 
+                    ? { ...story, liked: result.liked, like_count: result.like_count }
+                    : story
+            ));
+        } catch (err) {
+            console.error('Failed to toggle like:', err);
+        } finally {
+            setIsLiking(false);
+        }
+    };
+
+    const handleShare = async () => {
+        const roomCode = storage.getRoomCode() || storage.getRoomId();
+        const shareUrl = typeof window !== 'undefined' 
+            ? `${window.location.origin}/nickname?code=${roomCode}`
+            : '';
+        
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            setCopiedLink(true);
+            setTimeout(() => setCopiedLink(false), 2000);
+        } catch {
+            // Fallback
+            const input = document.createElement('input');
+            input.value = shareUrl;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            setCopiedLink(true);
+            setTimeout(() => setCopiedLink(false), 2000);
+        }
     };
 
     // File upload handlers
@@ -317,11 +399,22 @@ export default function RoomPage() {
                         {/* Story media */}
                         {currentStory.media_url ? (
                             currentStory.media_type === 'image' ? (
-                                <img
-                                    src={currentStory.media_url}
-                                    alt="Story"
-                                    className="max-w-full max-h-full object-contain"
-                                />
+                                <>
+                                    {isMediaLoading && (
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                        </div>
+                                    )}
+                                    <img
+                                        key={currentStory.id}
+                                        src={currentStory.media_url}
+                                        alt="Story"
+                                        className={`max-w-full max-h-full object-contain transition-opacity duration-200 ${isMediaLoading ? 'opacity-0' : 'opacity-100'}`}
+                                        onLoadStart={() => setIsMediaLoading(true)}
+                                        onLoad={() => setIsMediaLoading(false)}
+                                        onError={() => setIsMediaLoading(false)}
+                                    />
+                                </>
                             ) : (
                                 <video
                                     key={currentStory.id}
@@ -339,13 +432,65 @@ export default function RoomPage() {
                             </div>
                         )}
 
-                        {/* Story info */}
-                        <div className="absolute bottom-8 left-4 right-4 z-40">
-                            {currentStory.creator_nickname && (
-                                <p className="text-sm text-white/80">
-                                    by {currentStory.creator_nickname}
-                                </p>
-                            )}
+                        {/* Story info and actions */}
+                        <div className="absolute bottom-8 left-4 right-4 z-40 flex items-end justify-between">
+                            <div>
+                                {currentStory.creator_nickname && (
+                                    <p className="text-sm text-white/80">
+                                        by {currentStory.creator_nickname}
+                                    </p>
+                                )}
+                            </div>
+                            
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-3">
+                                {/* Like button */}
+                                {viewerHash && (
+                                    <button
+                                        onClick={handleLike}
+                                        disabled={isLiking}
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-all"
+                                        aria-label={currentStory.liked ? 'Unlike' : 'Like'}
+                                    >
+                                        <svg 
+                                            className={`w-5 h-5 transition-all ${currentStory.liked ? 'text-red-500 fill-red-500' : 'text-white'}`}
+                                            viewBox="0 0 24 24" 
+                                            fill={currentStory.liked ? 'currentColor' : 'none'} 
+                                            stroke="currentColor" 
+                                            strokeWidth="2"
+                                        >
+                                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                                        </svg>
+                                        {(currentStory.like_count ?? 0) > 0 && (
+                                            <span className="text-sm text-white font-medium">
+                                                {currentStory.like_count}
+                                            </span>
+                                        )}
+                                    </button>
+                                )}
+                                
+                                {/* Share button */}
+                                <button
+                                    onClick={handleShare}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-all"
+                                    aria-label="Share room"
+                                >
+                                    {copiedLink ? (
+                                        <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                    ) : (
+                                        <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                                            <polyline points="16 6 12 2 8 6" />
+                                            <line x1="12" y1="2" x2="12" y2="15" />
+                                        </svg>
+                                    )}
+                                    <span className="text-sm text-white font-medium">
+                                        {copiedLink ? 'Copied!' : 'Share'}
+                                    </span>
+                                </button>
+                            </div>
                         </div>
                     </>
                 ) : null}

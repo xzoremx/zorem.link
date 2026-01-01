@@ -89,12 +89,22 @@ export const storage = {
         localStorage.setItem('current_room_id', id);
     },
 
+    getRoomCode: (): string | null => {
+        if (typeof window === 'undefined') return null;
+        return localStorage.getItem('current_room_code');
+    },
+    setRoomCode: (code: string): void => {
+        if (typeof window === 'undefined') return;
+        localStorage.setItem('current_room_code', code);
+    },
+
     clearSession: (): void => {
         if (typeof window === 'undefined') return;
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_email');
         localStorage.removeItem('viewer_hash');
         localStorage.removeItem('current_room_id');
+        localStorage.removeItem('current_room_code');
     },
 };
 
@@ -323,6 +333,12 @@ export const storiesAPI = {
 
     recordView: (storyId: string, viewerHash: string): Promise<{ message: string }> =>
         apiRequest(`/api/stories/${storyId}/view`, {
+            method: 'POST',
+            body: JSON.stringify({ viewer_hash: viewerHash }),
+        }),
+
+    toggleLike: (storyId: string, viewerHash: string): Promise<{ story_id: string; liked: boolean; like_count: number }> =>
+        apiRequest(`/api/stories/${storyId}/like`, {
             method: 'POST',
             body: JSON.stringify({ viewer_hash: viewerHash }),
         }),

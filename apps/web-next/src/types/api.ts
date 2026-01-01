@@ -81,6 +81,10 @@ export interface Story {
     media_type: 'image' | 'video';
     created_at: string;
     creator_nickname?: string;
+    like_count?: number;
+    liked?: boolean;
+    view_count?: number;
+    viewed?: boolean;
 }
 
 export interface UploadUrlResponse {

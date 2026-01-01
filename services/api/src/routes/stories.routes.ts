@@ -19,6 +19,7 @@ interface RoomRow {
   allow_uploads: boolean;
   is_active: boolean;
   expires_at: Date;
+  max_uploads_per_viewer: number | null;
 }
 
 interface StoryRow {
@@ -29,6 +30,9 @@ interface StoryRow {
   created_at: Date;
   expires_at: Date;
   view_count?: string;
+  like_count?: string;
+  creator_nickname?: string;
+  creator_viewer_hash?: string;
 }
 
 /**
@@ -72,23 +76,34 @@ router.get('/room/:roomId', async (req: Request, res: Response): Promise<void> =
     }
 
     const storiesResult = await query<StoryRow>(
-      `SELECT s.id, s.media_type, s.media_key, s.created_at, s.expires_at,
-              COUNT(DISTINCT v.id) as view_count
+      `SELECT s.id, s.media_type, s.media_key, s.created_at, s.expires_at, s.creator_viewer_hash,
+              COUNT(DISTINCT v.id) as view_count,
+              COUNT(DISTINCT sl.id) as like_count,
+              vs.nickname as creator_nickname
        FROM stories s
        LEFT JOIN views v ON s.id = v.story_id
+       LEFT JOIN story_likes sl ON s.id = sl.story_id
+       LEFT JOIN viewer_sessions vs ON s.room_id = vs.room_id AND s.creator_viewer_hash = vs.viewer_hash
        WHERE s.room_id = $1 AND s.expires_at > NOW()
-       GROUP BY s.id
+       GROUP BY s.id, vs.nickname
        ORDER BY s.created_at ASC`,
       [roomId]
     );
 
     let viewedStoryIds: string[] = [];
+    let likedStoryIds: string[] = [];
     if (viewerHash && validateViewerHash(viewerHash)) {
       const viewsResult = await query<{ story_id: string }>(
         `SELECT story_id FROM views WHERE viewer_hash = $1`,
         [viewerHash]
       );
       viewedStoryIds = viewsResult.rows.map((row) => row.story_id);
+
+      const likesResult = await query<{ story_id: string }>(
+        `SELECT story_id FROM story_likes WHERE viewer_hash = $1`,
+        [viewerHash]
+      );
+      likedStoryIds = likesResult.rows.map((row) => row.story_id);
     }
 
     const stories = await Promise.all(
@@ -112,7 +127,10 @@ router.get('/room/:roomId', async (req: Request, res: Response): Promise<void> =
           created_at: story.created_at,
           expires_at: story.expires_at,
           view_count: parseInt(story.view_count ?? '0') || 0,
+          like_count: parseInt(story.like_count ?? '0') || 0,
           viewed: viewedStoryIds.includes(story.id),
+          liked: likedStoryIds.includes(story.id),
+          creator_nickname: story.creator_nickname || null,
         };
       })
     );
@@ -162,7 +180,7 @@ router.post('/upload-url', async (req: Request, res: Response): Promise<void> =>
     }
 
     const roomResult = await query<RoomRow>(
-      `SELECT id, owner_id, allow_uploads, is_active, expires_at
+      `SELECT id, owner_id, allow_uploads, is_active, expires_at, max_uploads_per_viewer
        FROM rooms 
        WHERE id = $1`,
       [room_id]
@@ -192,6 +210,7 @@ router.post('/upload-url', async (req: Request, res: Response): Promise<void> =>
     }
 
     let hasPermission = false;
+    let uploadsRemaining: number | null = null;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
@@ -220,6 +239,26 @@ router.post('/upload-url', async (req: Request, res: Response): Promise<void> =>
 
       if (viewerResult.rows.length > 0) {
         hasPermission = true;
+
+        // Check upload limit for viewers
+        if (room.max_uploads_per_viewer !== null) {
+          const uploadCountResult = await query<{ count: string }>(
+            `SELECT COUNT(*) as count FROM stories 
+             WHERE room_id = $1 AND creator_viewer_hash = $2`,
+            [room_id, viewerHash]
+          );
+          const uploadCount = parseInt(uploadCountResult.rows[0]?.count || '0');
+          uploadsRemaining = room.max_uploads_per_viewer - uploadCount;
+          
+          if (uploadsRemaining <= 0) {
+            res.status(403).json({ 
+              error: `Upload limit reached. Maximum ${room.max_uploads_per_viewer} stories per viewer.`,
+              uploads_remaining: 0,
+              max_uploads: room.max_uploads_per_viewer
+            });
+            return;
+          }
+        }
       }
     }
 
@@ -292,7 +331,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     const roomResult = await query<RoomRow>(
-      `SELECT id, owner_id, allow_uploads, is_active, expires_at
+      `SELECT id, owner_id, allow_uploads, is_active, expires_at, max_uploads_per_viewer
        FROM rooms 
        WHERE id = $1`,
       [room_id]
@@ -322,6 +361,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     let hasPermission = false;
+    let isOwner = false;
+    let creatorViewerHash: string | null = null;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
@@ -330,6 +371,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
         if (decoded.userId === room.owner_id) {
           hasPermission = true;
+          isOwner = true;
         }
       } catch {
         // Token inválido
@@ -350,6 +392,26 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
       if (viewerResult.rows.length > 0) {
         hasPermission = true;
+        creatorViewerHash = viewerHash;
+
+        // Check upload limit for viewers
+        if (room.max_uploads_per_viewer !== null) {
+          const uploadCountResult = await query<{ count: string }>(
+            `SELECT COUNT(*) as count FROM stories 
+             WHERE room_id = $1 AND creator_viewer_hash = $2`,
+            [room_id, viewerHash]
+          );
+          const uploadCount = parseInt(uploadCountResult.rows[0]?.count || '0');
+          
+          if (uploadCount >= room.max_uploads_per_viewer) {
+            res.status(403).json({ 
+              error: `Upload limit reached. Maximum ${room.max_uploads_per_viewer} stories per viewer.`,
+              uploads_remaining: 0,
+              max_uploads: room.max_uploads_per_viewer
+            });
+            return;
+          }
+        }
       }
     }
 
@@ -359,10 +421,10 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     const storyResult = await query<StoryRow>(
-      `INSERT INTO stories (room_id, media_type, media_key, expires_at)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO stories (room_id, media_type, media_key, expires_at, creator_viewer_hash)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING id, room_id, media_type, media_key, created_at, expires_at`,
-      [room_id, media_type, media_key, room.expires_at]
+      [room_id, media_type, media_key, room.expires_at, creatorViewerHash]
     );
 
     const story = storyResult.rows[0];
@@ -455,6 +517,103 @@ router.post('/:storyId/view', async (req: Request, res: Response): Promise<void>
   } catch (error) {
     console.error('Error recording view:', error);
     res.status(500).json({ error: 'Failed to record view' });
+  }
+});
+
+/**
+ * POST /api/stories/:storyId/like
+ */
+router.post('/:storyId/like', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { storyId } = req.params;
+    const { viewer_hash } = req.body as { viewer_hash?: string };
+
+    if (!viewer_hash) {
+      res.status(400).json({ error: 'viewer_hash is required' });
+      return;
+    }
+
+    if (!validateViewerHash(viewer_hash)) {
+      res.status(400).json({ error: 'Invalid viewer_hash format' });
+      return;
+    }
+
+    const storyResult = await query<StoryRow>(
+      `SELECT s.id, s.room_id, s.expires_at
+       FROM stories s
+       WHERE s.id = $1`,
+      [storyId]
+    );
+
+    if (storyResult.rows.length === 0) {
+      res.status(404).json({ error: 'Story not found' });
+      return;
+    }
+
+    const story = storyResult.rows[0];
+    if (!story) {
+      res.status(404).json({ error: 'Story not found' });
+      return;
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(story.expires_at);
+    if (expiresAt < now) {
+      res.status(403).json({ error: 'Story has expired' });
+      return;
+    }
+
+    // Verify viewer is in this room
+    const viewerResult = await query<{ id: string }>(
+      `SELECT id FROM viewer_sessions 
+       WHERE room_id = $1 AND viewer_hash = $2`,
+      [story.room_id, viewer_hash]
+    );
+
+    if (viewerResult.rows.length === 0) {
+      res.status(403).json({ error: 'Invalid viewer for this room' });
+      return;
+    }
+
+    // Toggle like
+    const existingLike = await query<{ id: string }>(
+      `SELECT id FROM story_likes WHERE story_id = $1 AND viewer_hash = $2`,
+      [storyId, viewer_hash]
+    );
+
+    let liked: boolean;
+    if (existingLike.rows.length > 0) {
+      // Unlike
+      await query(
+        `DELETE FROM story_likes WHERE story_id = $1 AND viewer_hash = $2`,
+        [storyId, viewer_hash]
+      );
+      liked = false;
+    } else {
+      // Like
+      await query(
+        `INSERT INTO story_likes (story_id, viewer_hash) VALUES ($1, $2)
+         ON CONFLICT (story_id, viewer_hash) DO NOTHING`,
+        [storyId, viewer_hash]
+      );
+      liked = true;
+    }
+
+    // Get updated like count
+    const likeCountResult = await query<{ count: string }>(
+      `SELECT COUNT(*) as count FROM story_likes WHERE story_id = $1`,
+      [storyId]
+    );
+    const likeCount = parseInt(likeCountResult.rows[0]?.count || '0');
+
+    res.json({ 
+      story_id: storyId, 
+      liked, 
+      like_count: likeCount 
+    });
+  } catch (error) {
+    console.error('Error toggling like:', error);
+    res.status(500).json({ error: 'Failed to toggle like' });
   }
 });
 
