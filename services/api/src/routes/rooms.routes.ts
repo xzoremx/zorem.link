@@ -12,7 +12,7 @@ const router = express.Router();
 interface CreateRoomBody {
   duration?: RoomDuration;
   allow_uploads?: boolean;
-  max_uploads_per_viewer?: number | null;
+  max_uploads_per_viewer?: number;
 }
 
 interface RoomRow {
@@ -58,15 +58,9 @@ router.post(
       }
 
       // Validate max_uploads_per_viewer if provided
-      // undefined = use DB default (3), null = unlimited, number = that limit
-      let maxUploads: number | null;
-      if (max_uploads_per_viewer === undefined) {
-        // Not provided, use DB default (3) - don't include in INSERT, let DB handle it
-        maxUploads = undefined as any;
-      } else if (max_uploads_per_viewer === null) {
-        // Explicitly unlimited
-        maxUploads = null;
-      } else {
+      // undefined = use DB default (1), number = that limit
+      let maxUploads: number | undefined;
+      if (max_uploads_per_viewer !== undefined) {
         // Number provided, validate it
         if (!Number.isInteger(max_uploads_per_viewer) || max_uploads_per_viewer < 1) {
           res.status(400).json({ error: 'max_uploads_per_viewer must be a positive integer' });
@@ -102,7 +96,7 @@ router.post(
           [userId, code, expiresAt, allow_uploads === true]
         );
       } else {
-        // Explicitly set (can be null for unlimited or a number)
+        // Explicitly set the limit
         roomResult = await query<RoomRow>(
           `INSERT INTO rooms (owner_id, code, expires_at, allow_uploads, max_uploads_per_viewer, is_active)
            VALUES ($1, $2, $3, $4, $5, true)

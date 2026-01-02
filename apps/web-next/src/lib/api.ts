@@ -226,7 +226,7 @@ export const authAPI = {
  * Rooms API
  */
 export const roomsAPI = {
-    create: (duration: string, allowUploads: boolean, maxUploadsPerViewer?: number | null): Promise<CreateRoomResponse> => {
+    create: (duration: string, allowUploads: boolean, maxUploadsPerViewer?: number): Promise<CreateRoomResponse> => {
         const body: Record<string, unknown> = {
             duration,
             allow_uploads: allowUploads,

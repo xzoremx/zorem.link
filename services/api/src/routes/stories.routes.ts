@@ -19,7 +19,7 @@ interface RoomRow {
   allow_uploads: boolean;
   is_active: boolean;
   expires_at: Date;
-  max_uploads_per_viewer: number | null;
+  max_uploads_per_viewer: number;
 }
 
 interface StoryRow {
@@ -241,23 +241,21 @@ router.post('/upload-url', async (req: Request, res: Response): Promise<void> =>
         hasPermission = true;
 
         // Check upload limit for viewers
-        if (room.max_uploads_per_viewer !== null) {
-          const uploadCountResult = await query<{ count: string }>(
-            `SELECT COUNT(*) as count FROM stories 
-             WHERE room_id = $1 AND creator_viewer_hash = $2`,
-            [room_id, viewerHash]
-          );
-          const uploadCount = parseInt(uploadCountResult.rows[0]?.count || '0');
-          uploadsRemaining = room.max_uploads_per_viewer - uploadCount;
-          
-          if (uploadsRemaining <= 0) {
-            res.status(403).json({ 
-              error: `Upload limit reached. Maximum ${room.max_uploads_per_viewer} stories per viewer.`,
-              uploads_remaining: 0,
-              max_uploads: room.max_uploads_per_viewer
-            });
-            return;
-          }
+        const uploadCountResult = await query<{ count: string }>(
+          `SELECT COUNT(*) as count FROM stories 
+           WHERE room_id = $1 AND creator_viewer_hash = $2`,
+          [room_id, viewerHash]
+        );
+        const uploadCount = parseInt(uploadCountResult.rows[0]?.count || '0');
+        uploadsRemaining = room.max_uploads_per_viewer - uploadCount;
+        
+        if (uploadsRemaining <= 0) {
+          res.status(403).json({ 
+            error: `Upload limit reached. Maximum ${room.max_uploads_per_viewer} stories per viewer.`,
+            uploads_remaining: 0,
+            max_uploads: room.max_uploads_per_viewer
+          });
+          return;
         }
       }
     }
@@ -395,22 +393,20 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         creatorViewerHash = viewerHash;
 
         // Check upload limit for viewers
-        if (room.max_uploads_per_viewer !== null) {
-          const uploadCountResult = await query<{ count: string }>(
-            `SELECT COUNT(*) as count FROM stories 
-             WHERE room_id = $1 AND creator_viewer_hash = $2`,
-            [room_id, viewerHash]
-          );
-          const uploadCount = parseInt(uploadCountResult.rows[0]?.count || '0');
-          
-          if (uploadCount >= room.max_uploads_per_viewer) {
-            res.status(403).json({ 
-              error: `Upload limit reached. Maximum ${room.max_uploads_per_viewer} stories per viewer.`,
-              uploads_remaining: 0,
-              max_uploads: room.max_uploads_per_viewer
-            });
-            return;
-          }
+        const uploadCountResult = await query<{ count: string }>(
+          `SELECT COUNT(*) as count FROM stories 
+           WHERE room_id = $1 AND creator_viewer_hash = $2`,
+          [room_id, viewerHash]
+        );
+        const uploadCount = parseInt(uploadCountResult.rows[0]?.count || '0');
+        
+        if (uploadCount >= room.max_uploads_per_viewer) {
+          res.status(403).json({ 
+            error: `Upload limit reached. Maximum ${room.max_uploads_per_viewer} stories per viewer.`,
+            uploads_remaining: 0,
+            max_uploads: room.max_uploads_per_viewer
+          });
+          return;
         }
       }
     }

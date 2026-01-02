@@ -1,8 +1,8 @@
 -- Migration 005: Upload limits per viewer and story likes
 -- Adds max uploads limit and tracks story creators
 
--- Add max_uploads_per_viewer to rooms (NULL means unlimited)
-ALTER TABLE rooms ADD COLUMN IF NOT EXISTS max_uploads_per_viewer INTEGER DEFAULT 3;
+-- Add max_uploads_per_viewer to rooms
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS max_uploads_per_viewer INTEGER DEFAULT 1;
 
 -- Add creator_viewer_hash to stories to track who uploaded each story
 ALTER TABLE stories ADD COLUMN IF NOT EXISTS creator_viewer_hash VARCHAR(64);
