@@ -617,4 +617,63 @@ router.post('/:storyId/like', async (req: Request, res: Response): Promise<void>
   }
 });
 
+/**
+ * DELETE /api/stories/:storyId
+ * Only room owner can delete stories
+ */
+router.delete('/:storyId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { storyId } = req.params;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    try {
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, config.jwtSecret) as JWTPayload;
+      const userId = decoded.userId;
+
+      // Get story and room info
+      const storyResult = await query<StoryRow & { owner_id: string }>(
+        `SELECT s.id, s.room_id, s.expires_at, r.owner_id
+         FROM stories s
+         JOIN rooms r ON s.room_id = r.id
+         WHERE s.id = $1`,
+        [storyId]
+      );
+
+      if (storyResult.rows.length === 0) {
+        res.status(404).json({ error: 'Story not found' });
+        return;
+      }
+
+      const story = storyResult.rows[0];
+      if (!story) {
+        res.status(404).json({ error: 'Story not found' });
+        return;
+      }
+
+      // Verify user is the room owner
+      if (story.owner_id !== userId) {
+        res.status(403).json({ error: 'Only room owner can delete stories' });
+        return;
+      }
+
+      // Delete the story (cascade will handle views and likes)
+      await query('DELETE FROM stories WHERE id = $1', [storyId]);
+
+      res.json({ message: 'Story deleted successfully', story_id: storyId });
+    } catch (err) {
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
+  } catch (error) {
+    console.error('Error deleting story:', error);
+    res.status(500).json({ error: 'Failed to delete story' });
+  }
+});
+
 export default router;

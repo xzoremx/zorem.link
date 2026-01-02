@@ -350,6 +350,11 @@ export const storiesAPI = {
             method: 'POST',
             body: JSON.stringify({ viewer_hash: viewerHash }),
         }),
+
+    delete: (storyId: string): Promise<{ message: string; story_id: string }> =>
+        apiRequest(`/api/stories/${storyId}`, {
+            method: 'DELETE',
+        }),
 };
 
 /**
