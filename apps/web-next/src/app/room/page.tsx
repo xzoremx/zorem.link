@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { storiesAPI, storage, uploadToStorage, authAPI } from '@/lib';
 import type { Story } from '@/types';
 
@@ -40,6 +39,28 @@ export default function RoomPage() {
     const [isDeleting, setIsDeleting] = useState(false);
     
     const isLoadingRef = useRef(false);
+    const forceRefreshMediaUrlForStoryIds = useRef<Set<string>>(new Set());
+    const lastMediaRefreshAttemptAt = useRef<Record<string, number>>({});
+
+    const areStoriesEqual = (a: Story[], b: Story[]): boolean => {
+        if (a.length !== b.length) return false;
+
+        for (let i = 0; i < a.length; i++) {
+            const storyA = a[i];
+            const storyB = b[i];
+            if (!storyA || !storyB) return false;
+            if (storyA.id !== storyB.id) return false;
+            if (storyA.media_type !== storyB.media_type) return false;
+            if (storyA.media_url !== storyB.media_url) return false;
+            if (storyA.liked !== storyB.liked) return false;
+            if (storyA.like_count !== storyB.like_count) return false;
+            if (storyA.view_count !== storyB.view_count) return false;
+            if (storyA.viewed !== storyB.viewed) return false;
+            if (storyA.creator_nickname !== storyB.creator_nickname) return false;
+        }
+
+        return true;
+    };
 
     // Load stories function
     const loadStories = useCallback(async (rId: string, vHash: string) => {
@@ -51,18 +72,43 @@ export default function RoomPage() {
             const newStories = result.stories || [];
             
             setStories(prevStories => {
+                const prevById = new Map(prevStories.map(story => [story.id, story]));
+
+                const mergedStories = newStories.map(story => {
+                    const prev = prevById.get(story.id);
+                    if (!prev) return story;
+
+                    // Keep the existing media_url to avoid flicker (S3 presigned URLs change on every poll)
+                    const shouldForceRefresh = forceRefreshMediaUrlForStoryIds.current.has(story.id);
+                    const mediaUrl = shouldForceRefresh ? story.media_url : (prev.media_url ?? story.media_url);
+
+                    if (shouldForceRefresh && story.media_url && story.media_url !== prev.media_url) {
+                        forceRefreshMediaUrlForStoryIds.current.delete(story.id);
+                    }
+
+                    return {
+                        ...prev,
+                        ...story,
+                        media_url: mediaUrl,
+                    };
+                });
+
                 // Check if stories changed
                 const storiesChanged = 
-                    prevStories.length !== newStories.length ||
+                    prevStories.length !== mergedStories.length ||
                     prevStories.some((story, idx) => 
-                        !newStories[idx] || story.id !== newStories[idx].id
+                        !mergedStories[idx] || story.id !== mergedStories[idx].id
                     );
 
-                if (storiesChanged && newStories.length > 0) {
-                    setCurrentIndex(prev => prev < 0 ? 0 : Math.min(prev, newStories.length - 1));
+                if (storiesChanged && mergedStories.length > 0) {
+                    setCurrentIndex(prev => prev < 0 ? 0 : Math.min(prev, mergedStories.length - 1));
                 }
-                
-                return newStories;
+
+                if (areStoriesEqual(prevStories, mergedStories)) {
+                    return prevStories;
+                }
+
+                return mergedStories;
             });
 
             // Get allow_uploads from response if available
@@ -125,11 +171,12 @@ export default function RoomPage() {
     }, [currentIndex, stories.length]);
 
     // Record view when story changes
+    const currentStoryId = currentIndex >= 0 ? stories[currentIndex]?.id : null;
     useEffect(() => {
-        if (currentIndex >= 0 && stories[currentIndex] && viewerHash) {
-            storiesAPI.recordView(stories[currentIndex].id, viewerHash).catch(console.error);
+        if (currentStoryId && viewerHash) {
+            storiesAPI.recordView(currentStoryId, viewerHash).catch(console.error);
         }
-    }, [currentIndex, stories, viewerHash]);
+    }, [currentStoryId, viewerHash]);
 
     // Preload ALL images when stories load for instant navigation
     useEffect(() => {
@@ -435,6 +482,20 @@ export default function RoomPage() {
                                     className="max-w-full max-h-full object-contain"
                                     loading="eager"
                                     decoding="async"
+                                    onLoad={() => {
+                                        forceRefreshMediaUrlForStoryIds.current.delete(currentStory.id);
+                                    }}
+                                    onError={() => {
+                                        if (!roomId) return;
+
+                                        const now = Date.now();
+                                        const lastAttempt = lastMediaRefreshAttemptAt.current[currentStory.id] ?? 0;
+                                        if (now - lastAttempt < 5000) return;
+                                        lastMediaRefreshAttemptAt.current[currentStory.id] = now;
+
+                                        forceRefreshMediaUrlForStoryIds.current.add(currentStory.id);
+                                        loadStories(roomId, viewerHash || '');
+                                    }}
                                 />
                             ) : (
                                 <video
@@ -444,6 +505,20 @@ export default function RoomPage() {
                                     autoPlay
                                     playsInline
                                     controls
+                                    onLoadedData={() => {
+                                        forceRefreshMediaUrlForStoryIds.current.delete(currentStory.id);
+                                    }}
+                                    onError={() => {
+                                        if (!roomId) return;
+
+                                        const now = Date.now();
+                                        const lastAttempt = lastMediaRefreshAttemptAt.current[currentStory.id] ?? 0;
+                                        if (now - lastAttempt < 5000) return;
+                                        lastMediaRefreshAttemptAt.current[currentStory.id] = now;
+
+                                        forceRefreshMediaUrlForStoryIds.current.add(currentStory.id);
+                                        loadStories(roomId, viewerHash || '');
+                                    }}
                                 />
                             )
                         ) : (
