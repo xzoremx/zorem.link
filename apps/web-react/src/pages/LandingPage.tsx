@@ -245,7 +245,7 @@ export function LandingPage() {
                                 <div className="h-0.5 w-6 bg-white/20 rounded-full" />
                             </div>
                         </div>
-                        
+
                         {/* Center main card */}
                         <div className="relative w-28 h-44 md:w-32 md:h-52 rounded-2xl border bg-[#0F0F11] backdrop-blur-md animate-float border-white/10 overflow-hidden z-10 shadow-2xl" style={{ animationDelay: '1s' }}>
                             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
@@ -262,7 +262,7 @@ export function LandingPage() {
                                 </div>
                             </div>
                         </div>
-                        
+
                         {/* Between center and right (card 1) */}
                         <div className="absolute right-16 md:right-32 top-6 w-16 h-26 md:w-20 md:h-32 rounded-xl border bg-[#0F0F11]/70 backdrop-blur-md animate-float border-white/10 overflow-hidden z-[5]" style={{ animationDelay: '1.2s' }}>
                             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-teal-500/20" />
