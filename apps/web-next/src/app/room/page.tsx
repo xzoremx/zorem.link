@@ -4,10 +4,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { storiesAPI, storage, uploadToStorage, authAPI, API_BASE_URL } from '@/lib';
+import { useAuth } from '@/context';
 import type { Story } from '@/types';
 
 export default function RoomPage() {
     const router = useRouter();
+    const { logout: authLogout } = useAuth();
     const [stories, setStories] = useState<Story[]>([]);
     const [currentIndex, setCurrentIndex] = useState(-1);
     const [isLoading, setIsLoading] = useState(true);
@@ -246,7 +248,9 @@ export default function RoomPage() {
     };
 
     const handleLogout = () => {
-        storage.clearSession();
+        authLogout();
+        setIsOwner(false);
+        setUserEmail(null);
         router.push('/');
     };
 
