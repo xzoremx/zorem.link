@@ -12,6 +12,7 @@ const router = express.Router();
 interface CreateRoomBody {
   duration?: RoomDuration;
   allow_uploads?: boolean;
+  max_uploads_per_viewer?: number | null;
 }
 
 interface RoomRow {
@@ -36,7 +37,7 @@ router.post(
   roomCreationLimiter,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { duration, allow_uploads } = req.body as CreateRoomBody;
+      const { duration, allow_uploads, max_uploads_per_viewer } = req.body as CreateRoomBody;
       const userId = req.user?.id;
 
       if (!userId) {
@@ -56,6 +57,24 @@ router.post(
         return;
       }
 
+      // Validate max_uploads_per_viewer if provided
+      // undefined = use DB default (3), null = unlimited, number = that limit
+      let maxUploads: number | null;
+      if (max_uploads_per_viewer === undefined) {
+        // Not provided, use DB default (3) - don't include in INSERT, let DB handle it
+        maxUploads = undefined as any;
+      } else if (max_uploads_per_viewer === null) {
+        // Explicitly unlimited
+        maxUploads = null;
+      } else {
+        // Number provided, validate it
+        if (!Number.isInteger(max_uploads_per_viewer) || max_uploads_per_viewer < 1) {
+          res.status(400).json({ error: 'max_uploads_per_viewer must be a positive integer' });
+          return;
+        }
+        maxUploads = max_uploads_per_viewer;
+      }
+
       const expiresAt = new Date();
 
       switch (duration) {
@@ -72,12 +91,25 @@ router.post(
 
       const code = await generateUniqueCode();
 
-      const roomResult = await query<RoomRow>(
-        `INSERT INTO rooms (owner_id, code, expires_at, allow_uploads, is_active)
-         VALUES ($1, $2, $3, $4, true)
-         RETURNING id, code, expires_at, allow_uploads, is_active, created_at`,
-        [userId, code, expiresAt, allow_uploads === true]
-      );
+      // Build INSERT query conditionally based on whether max_uploads_per_viewer is provided
+      let roomResult: { rows: RoomRow[] };
+      if (maxUploads === undefined) {
+        // Use DB default
+        roomResult = await query<RoomRow>(
+          `INSERT INTO rooms (owner_id, code, expires_at, allow_uploads, is_active)
+           VALUES ($1, $2, $3, $4, true)
+           RETURNING id, code, expires_at, allow_uploads, is_active, created_at`,
+          [userId, code, expiresAt, allow_uploads === true]
+        );
+      } else {
+        // Explicitly set (can be null for unlimited or a number)
+        roomResult = await query<RoomRow>(
+          `INSERT INTO rooms (owner_id, code, expires_at, allow_uploads, max_uploads_per_viewer, is_active)
+           VALUES ($1, $2, $3, $4, $5, true)
+           RETURNING id, code, expires_at, allow_uploads, is_active, created_at`,
+          [userId, code, expiresAt, allow_uploads === true, maxUploads]
+        );
+      }
 
       const room = roomResult.rows[0];
       if (!room) {

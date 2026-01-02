@@ -276,7 +276,7 @@ export function LandingPage() {
                                 </div>
                             </div>
                         </div>
-                        
+
                         {/* Between center and right (card 2 - smaller, behind) */}
                         <div className="absolute right-24 md:right-44 top-14 w-14 h-22 md:w-16 md:h-26 rounded-lg border bg-[#0F0F11]/60 backdrop-blur-md animate-float border-white/5 overflow-hidden z-[3] opacity-70" style={{ animationDelay: '1.7s' }}>
                             <div className="absolute inset-0 bg-gradient-to-br from-sky-500/15 to-indigo-500/15" />
@@ -284,7 +284,7 @@ export function LandingPage() {
                                 <div className="h-0.5 w-5 bg-white/20 rounded-full" />
                             </div>
                         </div>
-                        
+
                         {/* Right floating card */}
                         <div className="absolute -right-4 md:right-12 top-8 w-20 h-32 md:w-24 md:h-40 rounded-xl border bg-[#0F0F11]/80 backdrop-blur-md animate-float border-white/10 overflow-hidden" style={{ animationDelay: '1.5s' }}>
                             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20" />
@@ -580,9 +580,9 @@ export function LandingPage() {
                                 <div className="text-xs mt-1 text-neutral-500">50 guests, 127 stories</div>
                             </div>
                             <div className="w-8 h-8 rounded-full border bg-gradient-to-br from-violet-400 to-pink-400 border-white/10" />
+                            </div>
                         </div>
-                    </div>
-                
+
                     {/* Center Highlight */}
                     <div className="relative overflow-hidden text-black bg-[#EDEDED] pt-6 pr-6 pb-6 pl-6">
                         <div className="flex items-center gap-3 mb-4">
@@ -633,10 +633,10 @@ export function LandingPage() {
                                 <div className="text-3xl sm:text-4xl font-semibold tracking-tight mb-2">∞</div>
                                 <div className="text-xs text-neutral-500">Moments shared freely</div>
                             </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
             {/* Footer with Big CTA */}
             <footer className="relative pt-32 pb-12 bg-[#050505] overflow-hidden">

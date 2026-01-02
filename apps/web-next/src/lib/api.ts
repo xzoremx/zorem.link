@@ -226,11 +226,19 @@ export const authAPI = {
  * Rooms API
  */
 export const roomsAPI = {
-    create: (duration: string, allowUploads: boolean): Promise<CreateRoomResponse> =>
-        apiRequest('/api/rooms', {
+    create: (duration: string, allowUploads: boolean, maxUploadsPerViewer?: number | null): Promise<CreateRoomResponse> => {
+        const body: Record<string, unknown> = {
+            duration,
+            allow_uploads: allowUploads,
+        };
+        if (maxUploadsPerViewer !== undefined) {
+            body.max_uploads_per_viewer = maxUploadsPerViewer;
+        }
+        return apiRequest('/api/rooms', {
             method: 'POST',
-            body: JSON.stringify({ duration, allow_uploads: allowUploads }),
-        }),
+            body: JSON.stringify(body),
+        });
+    },
 
     validateCode: async (code: string): Promise<{ valid: boolean; error?: string; room?: Room }> => {
         try {

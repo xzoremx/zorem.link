@@ -31,6 +31,7 @@ export default function CreateRoomPage() {
     const [step, setStep] = useState<Step>('form');
     const [duration, setDuration] = useState('24h');
     const [allowUploads, setAllowUploads] = useState(true);
+    const [maxUploadsPerViewer, setMaxUploadsPerViewer] = useState<number | null>(3);
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState('');
 
@@ -60,7 +61,7 @@ export default function CreateRoomPage() {
         setError('');
 
         try {
-            const result = await roomsAPI.create(duration, allowUploads);
+            const result = await roomsAPI.create(duration, allowUploads, maxUploadsPerViewer);
 
             // Store room data
             const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -250,6 +251,39 @@ export default function CreateRoomPage() {
                                         }`} />
                                 </button>
                             </div>
+
+                            {/* Max Uploads Per Viewer */}
+                            {allowUploads && (
+                                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                                    <label className="text-sm font-medium text-white mb-2 block">
+                                        Max stories per viewer
+                                    </label>
+                                    <div className="flex items-center gap-4">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="50"
+                                            value={maxUploadsPerViewer ?? ''}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                setMaxUploadsPerViewer(value === '' ? null : parseInt(value, 10));
+                                            }}
+                                            placeholder="3"
+                                            className="flex-1 h-10 px-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                                        />
+                                        <button
+                                            onClick={() => setMaxUploadsPerViewer(null)}
+                                            className="px-3 h-10 rounded-xl border border-white/10 hover:bg-white/5 text-sm font-medium text-neutral-400 hover:text-white transition-all"
+                                            title="Unlimited"
+                                        >
+                                            ∞
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-neutral-500 mt-2">
+                                        Limit how many stories each viewer can upload (leave blank for unlimited)
+                                    </p>
+                                </div>
+                            )}
 
                             {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
