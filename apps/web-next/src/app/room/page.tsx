@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { storiesAPI, storage, uploadToStorage, authAPI } from '@/lib';
+import { storiesAPI, storage, uploadToStorage, authAPI, API_BASE_URL } from '@/lib';
 import type { Story } from '@/types';
 
 export default function RoomPage() {
@@ -41,6 +41,7 @@ export default function RoomPage() {
     const isLoadingRef = useRef(false);
     const forceRefreshMediaUrlForStoryIds = useRef<Set<string>>(new Set());
     const lastMediaRefreshAttemptAt = useRef<Record<string, number>>({});
+    const storiesVersionRef = useRef<number | null>(null);
 
     const areStoriesEqual = (a: Story[], b: Story[]): boolean => {
         if (a.length !== b.length) return false;
@@ -70,6 +71,13 @@ export default function RoomPage() {
         try {
             const result = await storiesAPI.getStories(rId, vHash);
             const newStories = result.stories || [];
+
+            if ('stories_version' in result) {
+                const version = Number((result as { stories_version?: unknown }).stories_version);
+                if (Number.isFinite(version)) {
+                    storiesVersionRef.current = version;
+                }
+            }
             
             setStories(prevStories => {
                 const prevById = new Map(prevStories.map(story => [story.id, story]));
@@ -151,9 +159,41 @@ export default function RoomPage() {
 
         loadStories(rId, vHash || '');
 
-        // Poll for new stories
-        const interval = setInterval(() => loadStories(rId, vHash || ''), 10000);
-        return () => clearInterval(interval);
+        if (typeof window === 'undefined' || !('EventSource' in window)) {
+            return;
+        }
+
+        const streamUrl = `${API_BASE_URL}/api/stories/room/${encodeURIComponent(rId)}/stream${
+            vHash ? `?viewer_hash=${encodeURIComponent(vHash)}` : ''
+        }`;
+
+        const eventSource = new EventSource(streamUrl);
+
+        const maybeRefreshStories = (event: MessageEvent) => {
+            try {
+                const data = JSON.parse(event.data) as { stories_version?: unknown };
+                const nextVersion = Number(data.stories_version);
+                if (Number.isFinite(nextVersion) && storiesVersionRef.current === nextVersion) {
+                    return;
+                }
+            } catch {
+                // Ignore malformed payloads and refresh anyway.
+            }
+
+            loadStories(rId, vHash || '');
+        };
+
+        eventSource.addEventListener('connected', maybeRefreshStories as EventListener);
+        eventSource.addEventListener('stories_changed', maybeRefreshStories as EventListener);
+
+        eventSource.addEventListener('error', () => {
+            // Browser will auto-reconnect; keep logs minimal.
+            console.debug('Room SSE connection error (will retry)');
+        });
+
+        return () => {
+            eventSource.close();
+        };
     }, [router, loadStories]);
 
     // Keyboard navigation

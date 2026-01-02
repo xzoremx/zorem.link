@@ -41,7 +41,7 @@ function getApiBaseUrl(): string {
     return 'http://localhost:3000';
 }
 
-const API_BASE_URL = getApiBaseUrl();
+export const API_BASE_URL = getApiBaseUrl();
 
 /**
  * Storage utilities with type safety

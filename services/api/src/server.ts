@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.routes.js';
 import roomsRoutes from './routes/rooms.routes.js';
 import storiesRoutes from './routes/stories.routes.js';
 import viewerRoutes from './routes/viewer.routes.js';
+import { initRoomEventsListener } from './lib/roomEvents.js';
 import type { HttpError } from './types/index.js';
 
 const app = express();
@@ -94,6 +95,12 @@ app.listen(PORT, async () => {
   console.log(`\n Testing database connection...`);
 
   await testConnection();
+
+  try {
+    await initRoomEventsListener();
+  } catch (error) {
+    console.error('Failed to start room events listener:', error);
+  }
 });
 
 // Graceful shutdown

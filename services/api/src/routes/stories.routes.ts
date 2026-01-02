@@ -7,6 +7,7 @@ import {
   generateMediaKey,
   resolveUploadContent,
 } from '../lib/s3.js';
+import { publishRoomEvent, subscribeToRoom } from '../lib/roomEvents.js';
 import { config } from '../config/env.js';
 import { validateViewerHash } from '../lib/crypto.js';
 import type { JWTPayload, MediaType } from '../types/index.js';
@@ -20,6 +21,7 @@ interface RoomRow {
   is_active: boolean;
   expires_at: Date;
   max_uploads_per_viewer: number;
+  stories_version: number;
 }
 
 interface StoryRow {
@@ -35,18 +37,50 @@ interface StoryRow {
   creator_viewer_hash?: string;
 }
 
+function parseBigIntToNumber(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+async function bumpRoomStoriesVersion(roomId: string): Promise<number> {
+  const result = await query<{ stories_version: string }>(
+    `UPDATE rooms
+     SET stories_version = stories_version + 1
+     WHERE id = $1
+     RETURNING stories_version`,
+    [roomId]
+  );
+
+  const storiesVersion = parseBigIntToNumber(result.rows[0]?.stories_version);
+
+  await publishRoomEvent({
+    event: 'stories_changed',
+    payload: { room_id: roomId, stories_version: storiesVersion },
+  });
+
+  return storiesVersion;
+}
+
 /**
  * GET /api/stories/room/:roomId
  */
 router.get('/room/:roomId', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { roomId } = req.params;
+    const roomId = req.params.roomId;
+    if (!roomId) {
+      res.status(400).json({ error: 'roomId is required' });
+      return;
+    }
     const viewerHash =
       (req.query.viewer_hash as string) ||
       (req.headers['x-viewer-hash'] as string);
 
     const roomResult = await query<RoomRow>(
-      `SELECT id, is_active, expires_at, allow_uploads
+      `SELECT id, is_active, expires_at, allow_uploads, stories_version
        FROM rooms 
        WHERE id = $1`,
       [roomId]
@@ -72,6 +106,23 @@ router.get('/room/:roomId', async (req: Request, res: Response): Promise<void> =
     const expiresAt = new Date(room.expires_at);
     if (expiresAt < now) {
       res.status(403).json({ error: 'Room has expired' });
+      return;
+    }
+
+    res.setHeader('Vary', 'x-viewer-hash');
+    const etag = `W/"room:${roomId}:stories:${room.stories_version ?? 0}"`;
+    res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', 'private, must-revalidate');
+
+    const ifNoneMatch = req.headers['if-none-match'];
+    if (
+      typeof ifNoneMatch === 'string' &&
+      ifNoneMatch
+        .split(',')
+        .map((value) => value.trim())
+        .includes(etag)
+    ) {
+      res.status(304).end();
       return;
     }
 
@@ -138,12 +189,84 @@ router.get('/room/:roomId', async (req: Request, res: Response): Promise<void> =
     res.json({
       room_id: roomId,
       allow_uploads: room.allow_uploads,
+      stories_version: room.stories_version ?? 0,
       stories,
       total: stories.length,
     });
   } catch (error) {
     console.error('Error getting stories:', error);
     res.status(500).json({ error: 'Failed to get stories' });
+  }
+});
+
+/**
+ * GET /api/stories/room/:roomId/stream
+ * Server-Sent Events (SSE) stream for room story updates.
+ */
+router.get('/room/:roomId/stream', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const roomId = req.params.roomId;
+    if (!roomId) {
+      res.status(400).json({ error: 'roomId is required' });
+      return;
+    }
+
+    const roomResult = await query<RoomRow>(
+      `SELECT id, is_active, expires_at, stories_version
+       FROM rooms 
+       WHERE id = $1`,
+      [roomId]
+    );
+
+    if (roomResult.rows.length === 0) {
+      res.status(404).json({ error: 'Room not found' });
+      return;
+    }
+
+    const room = roomResult.rows[0];
+    if (!room) {
+      res.status(404).json({ error: 'Room not found' });
+      return;
+    }
+
+    if (!room.is_active) {
+      res.status(403).json({ error: 'Room is not active' });
+      return;
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(room.expires_at);
+    if (expiresAt < now) {
+      res.status(403).json({ error: 'Room has expired' });
+      return;
+    }
+
+    req.socket.setTimeout(0);
+
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    res.write(`event: connected\n`);
+    res.write(`data: ${JSON.stringify({ room_id: roomId, stories_version: room.stories_version ?? 0 })}\n\n`);
+
+    const unsubscribe = subscribeToRoom(roomId, res);
+
+    const heartbeat = setInterval(() => {
+      res.write(': ping\n\n');
+    }, 25000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+      res.end();
+    });
+  } catch (error) {
+    console.error('Error opening room stream:', error);
+    res.status(500).json({ error: 'Failed to open room stream' });
   }
 });
 
@@ -425,6 +548,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     const story = storyResult.rows[0];
 
+    await bumpRoomStoriesVersion(room_id);
+
     res.status(201).json({
       id: story?.id,
       room_id: story?.room_id,
@@ -602,6 +727,8 @@ router.post('/:storyId/like', async (req: Request, res: Response): Promise<void>
     );
     const likeCount = parseInt(likeCountResult.rows[0]?.count || '0');
 
+    await bumpRoomStoriesVersion(story.room_id);
+
     res.json({ 
       story_id: storyId, 
       liked, 
@@ -660,6 +787,8 @@ router.delete('/:storyId', async (req: Request, res: Response): Promise<void> =>
 
       // Delete the story (cascade will handle views and likes)
       await query('DELETE FROM stories WHERE id = $1', [storyId]);
+
+      await bumpRoomStoriesVersion(story.room_id);
 
       res.json({ message: 'Story deleted successfully', story_id: storyId });
     } catch (err) {
