@@ -110,21 +110,7 @@ router.get('/room/:roomId', async (req: Request, res: Response): Promise<void> =
     }
 
     res.setHeader('Vary', 'x-viewer-hash');
-    const etag = `W/"room:${roomId}:stories:${room.stories_version ?? 0}"`;
-    res.setHeader('ETag', etag);
-    res.setHeader('Cache-Control', 'private, must-revalidate');
-
-    const ifNoneMatch = req.headers['if-none-match'];
-    if (
-      typeof ifNoneMatch === 'string' &&
-      ifNoneMatch
-        .split(',')
-        .map((value) => value.trim())
-        .includes(etag)
-    ) {
-      res.status(304).end();
-      return;
-    }
+    res.setHeader('Cache-Control', 'no-store');
 
     const storiesResult = await query<StoryRow>(
       `SELECT s.id, s.media_type, s.media_key, s.created_at, s.expires_at, s.creator_viewer_hash,

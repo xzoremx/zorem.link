@@ -287,7 +287,7 @@ export const storiesAPI = {
         const url = viewerHash
             ? `/api/stories/room/${roomId}?viewer_hash=${encodeURIComponent(viewerHash)}`
             : `/api/stories/room/${roomId}`;
-        return apiRequest(url);
+        return apiRequest(url, { cache: 'no-store' });
     },
 
     getUploadUrl: (
