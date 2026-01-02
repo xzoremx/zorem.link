@@ -107,8 +107,9 @@ export default function MyRoomsPage() {
     };
 
     const openRoom = (room: RoomListItem) => {
-        // Store room ID and navigate to room
+        // Store room ID and code, then navigate to room
         storage.setRoomId(room.room_id);
+        storage.setRoomCode(room.code);
         router.push('/room');
     };
 

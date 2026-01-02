@@ -400,7 +400,7 @@ export default function RoomPage() {
             {/* Header */}
             <header className="absolute top-0 left-0 right-0 z-50 p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Link href="/" className="text-white/80 hover:text-white">
+                    <Link href={isOwner ? "/my-rooms" : "/"} className="text-white/80 hover:text-white">
                         <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M19 12H5M12 19l-7-7 7-7"/>
                         </svg>
