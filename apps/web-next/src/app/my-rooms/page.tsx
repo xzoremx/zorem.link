@@ -16,6 +16,7 @@ export default function MyRoomsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [closingRoomId, setClosingRoomId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
@@ -113,14 +114,30 @@ export default function MyRoomsPage() {
         router.push('/room');
     };
 
-    // Separate active and past rooms
-    const now = Date.now();
-    const activeRooms = rooms.filter(r => 
-        r.is_active && new Date(r.expires_at).getTime() > now
-    );
-    const pastRooms = rooms.filter(r => 
-        !r.is_active || new Date(r.expires_at).getTime() <= now
-    );
+    const closeRoom = async (room: RoomListItem) => {
+        if (!confirm(`Close room ${room.code}? This will end the room immediately and cannot be undone.`)) {
+            return;
+        }
+
+        setClosingRoomId(room.room_id);
+        try {
+            await roomsAPI.close(room.room_id);
+            // Update local state
+            setRooms(prev => prev.map(r =>
+                r.room_id === room.room_id
+                    ? { ...r, is_active: false }
+                    : r
+            ));
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Failed to close room');
+        } finally {
+            setClosingRoomId(null);
+        }
+    };
+
+    // Separate active and past rooms (using is_expired from API)
+    const activeRooms = rooms.filter(r => r.is_active && !r.is_expired);
+    const pastRooms = rooms.filter(r => !r.is_active || r.is_expired);
 
     if (authLoading || (!isAuthenticated && !authLoading)) {
         return (
@@ -247,17 +264,24 @@ export default function MyRoomsPage() {
                                                 </div>
 
                                                 <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                                                    <button 
+                                                    <button
                                                         onClick={() => copyToClipboard(room.code, `code-${room.room_id}`)}
                                                         className="h-10 px-4 rounded-xl border border-white/10 hover:bg-white/5 text-sm font-medium text-white"
                                                     >
                                                         {copiedId === `code-${room.room_id}` ? 'Copied!' : 'Copy code'}
                                                     </button>
-                                                    <button 
+                                                    <button
                                                         onClick={() => copyToClipboard(buildInviteLink(room.code), `link-${room.room_id}`)}
                                                         className="h-10 px-4 rounded-xl border border-white/10 hover:bg-white/5 text-sm font-medium text-white"
                                                     >
                                                         {copiedId === `link-${room.room_id}` ? 'Copied!' : 'Copy invite link'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => closeRoom(room)}
+                                                        disabled={closingRoomId === room.room_id}
+                                                        className="h-10 px-4 rounded-xl border border-red-500/30 hover:bg-red-500/10 text-sm font-medium text-red-400 disabled:opacity-50"
+                                                    >
+                                                        {closingRoomId === room.room_id ? 'Closing...' : 'Close'}
                                                     </button>
                                                 </div>
                                             </div>
@@ -269,7 +293,7 @@ export default function MyRoomsPage() {
 
                         {/* Past Rooms */}
                         <div className="glass rounded-2xl p-6 md:p-8">
-                            <div className="flex items-center justify-between gap-4 mb-6">
+                            <div className="flex items-center justify-between gap-4 mb-4">
                                 <div>
                                     <h2 className="text-lg font-medium text-white">Past</h2>
                                     <p className="text-sm text-neutral-500">Expired or closed rooms</p>
@@ -278,6 +302,14 @@ export default function MyRoomsPage() {
                                     {pastRooms.length} room{pastRooms.length !== 1 ? 's' : ''}
                                 </span>
                             </div>
+
+                            {pastRooms.length > 0 && (
+                                <div className="mb-6 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                                    <p className="text-xs text-amber-400/80">
+                                        Media deleted. Stats available for 7 days.
+                                    </p>
+                                </div>
+                            )}
 
                             {pastRooms.length === 0 ? (
                                 <div className="text-center text-neutral-500 text-sm py-8">
@@ -306,18 +338,15 @@ export default function MyRoomsPage() {
                                                             {room.code}
                                                         </div>
                                                         <div className="mt-2 text-xs text-neutral-500">
-                                                            Created: {formatDate(room.created_at)} • 
-                                                            Uploads: {room.allow_uploads ? 'on' : 'off'} • 
-                                                            Stories: {room.story_count} • 
-                                                            Viewers: {room.viewer_count}
+                                                            Created: {formatDate(room.created_at)}
+                                                        </div>
+                                                        <div className="mt-1 text-xs text-neutral-500">
+                                                            Stories: {room.story_count} •
+                                                            Viewers: {room.viewer_count} •
+                                                            Views: {room.total_views} •
+                                                            Likes: {room.total_likes}
                                                         </div>
                                                     </div>
-                                                    <button
-                                                        disabled
-                                                        className="shrink-0 h-10 px-4 rounded-xl bg-white/10 text-white/60 font-medium cursor-not-allowed"
-                                                    >
-                                                        Unavailable
-                                                    </button>
                                                 </div>
                                             </div>
                                         );

@@ -54,8 +54,11 @@ export interface RoomListItem {
     hours_remaining: number;
     allow_uploads: boolean;
     is_active: boolean;
+    is_expired: boolean;
     viewer_count: number;
     story_count: number;
+    total_views: number;
+    total_likes: number;
     created_at: string;
 }
 

@@ -10,6 +10,7 @@ import roomsRoutes from './routes/rooms.routes.js';
 import storiesRoutes from './routes/stories.routes.js';
 import viewerRoutes from './routes/viewer.routes.js';
 import { initRoomEventsListener } from './lib/roomEvents.js';
+import { startCleanupScheduler } from './lib/cleanup.js';
 import type { HttpError } from './types/index.js';
 
 const app = express();
@@ -101,6 +102,9 @@ app.listen(PORT, async () => {
   } catch (error) {
     console.error('Failed to start room events listener:', error);
   }
+
+  // Start cleanup scheduler (runs every 60 seconds)
+  startCleanupScheduler(60 * 1000);
 });
 
 // Graceful shutdown

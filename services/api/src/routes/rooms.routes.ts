@@ -24,6 +24,8 @@ interface RoomRow {
   created_at: Date;
   viewer_count?: string;
   story_count?: string;
+  total_views?: string;
+  total_likes?: string;
 }
 
 const VALID_DURATIONS: RoomDuration[] = ['24h', '72h', '7d'];
@@ -291,6 +293,8 @@ router.delete(
 
 /**
  * GET /api/rooms
+ * Returns all rooms for the authenticated user, including expired ones.
+ * Expired rooms show stats but media is deleted.
  */
 router.get(
   '/',
@@ -302,24 +306,32 @@ router.get(
       const roomsResult = await query<RoomRow>(
         `SELECT r.id, r.code, r.expires_at, r.allow_uploads, r.is_active, r.created_at,
                 COUNT(DISTINCT vs.id) as viewer_count,
-                COUNT(DISTINCT s.id) as story_count
+                COUNT(DISTINCT s.id) as story_count,
+                COALESCE(SUM(
+                  (SELECT COUNT(*) FROM views v WHERE v.story_id = s.id)
+                ), 0) as total_views,
+                COALESCE(SUM(
+                  (SELECT COUNT(*) FROM story_likes sl WHERE sl.story_id = s.id)
+                ), 0) as total_likes
          FROM rooms r
          LEFT JOIN viewer_sessions vs ON r.id = vs.room_id
          LEFT JOIN stories s ON r.id = s.room_id
          WHERE r.owner_id = $1
          GROUP BY r.id
-         ORDER BY r.created_at DESC`,
+         ORDER BY r.expires_at DESC`,
         [userId]
       );
 
+      const now = new Date();
+
       const rooms = roomsResult.rows.map((room) => {
-        const now = new Date();
         const expiresAt = new Date(room.expires_at);
         const timeRemaining = expiresAt.getTime() - now.getTime();
         const hoursRemaining = Math.max(
           0,
           Math.floor(timeRemaining / (1000 * 60 * 60))
         );
+        const isExpired = expiresAt < now;
 
         return {
           room_id: room.id,
@@ -328,8 +340,11 @@ router.get(
           hours_remaining: hoursRemaining,
           allow_uploads: room.allow_uploads,
           is_active: room.is_active,
+          is_expired: isExpired,
           viewer_count: parseInt(room.viewer_count ?? '0') || 0,
           story_count: parseInt(room.story_count ?? '0') || 0,
+          total_views: parseInt(room.total_views ?? '0') || 0,
+          total_likes: parseInt(room.total_likes ?? '0') || 0,
           created_at: room.created_at,
         };
       });
