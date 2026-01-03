@@ -305,19 +305,16 @@ router.get(
 
       const roomsResult = await query<RoomRow>(
         `SELECT r.id, r.code, r.expires_at, r.allow_uploads, r.is_active, r.created_at,
-                COUNT(DISTINCT vs.id) as viewer_count,
-                COUNT(DISTINCT s.id) as story_count,
-                COALESCE(SUM(
-                  (SELECT COUNT(*) FROM views v WHERE v.story_id = s.id)
-                ), 0) as total_views,
-                COALESCE(SUM(
-                  (SELECT COUNT(*) FROM story_likes sl WHERE sl.story_id = s.id)
-                ), 0) as total_likes
+                (SELECT COUNT(*) FROM viewer_sessions vs WHERE vs.room_id = r.id) as viewer_count,
+                (SELECT COUNT(*) FROM stories s WHERE s.room_id = r.id) as story_count,
+                (SELECT COUNT(*) FROM views v
+                 JOIN stories s ON v.story_id = s.id
+                 WHERE s.room_id = r.id) as total_views,
+                (SELECT COUNT(*) FROM story_likes sl
+                 JOIN stories s ON sl.story_id = s.id
+                 WHERE s.room_id = r.id) as total_likes
          FROM rooms r
-         LEFT JOIN viewer_sessions vs ON r.id = vs.room_id
-         LEFT JOIN stories s ON r.id = s.room_id
          WHERE r.owner_id = $1
-         GROUP BY r.id
          ORDER BY r.expires_at DESC`,
         [userId]
       );
