@@ -5,7 +5,7 @@ import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { query } from '../db/pool.js';
 import { generateToken, verifyMagicLinkToken, verifyAuth } from '../middlewares/auth.js';
-import { magicLinkLimiter } from '../middlewares/rateLimit.js';
+import { magicLinkLimiter, strictLimiter } from '../middlewares/rateLimit.js';
 import { config } from '../config/env.js';
 import { sendEmail } from '../lib/email.js';
 import type { JWTPayload } from '../types/index.js';
@@ -314,7 +314,7 @@ router.post('/sign-up', async (req: Request, res: Response): Promise<void> => {
 /**
  * POST /api/auth/sign-in
  */
-router.post('/sign-in', async (req: Request, res: Response): Promise<void> => {
+router.post('/sign-in', strictLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body as { email?: string; password?: string };
 
@@ -386,7 +386,7 @@ router.post('/sign-in', async (req: Request, res: Response): Promise<void> => {
 /**
  * POST /api/auth/verify-2fa
  */
-router.post('/verify-2fa', async (req: Request, res: Response): Promise<void> => {
+router.post('/verify-2fa', strictLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { temp_token, code } = req.body as { temp_token?: string; code?: string };
 
@@ -797,6 +797,11 @@ router.post(
       const { code } = req.body as { code?: string };
       const userId = req.user?.id;
 
+      if (!code) {
+        res.status(400).json({ error: 'Verification code is required to disable 2FA' });
+        return;
+      }
+
       const userResult = await query<UserRow>(
         'SELECT two_factor_secret, two_factor_enabled FROM users WHERE id = $1',
         [userId]
@@ -807,21 +812,22 @@ router.post(
         return;
       }
 
-      if (code) {
-        const secret = userResult.rows[0].two_factor_secret;
-        if (secret) {
-          const verified = speakeasy.totp.verify({
-            secret,
-            encoding: 'base32',
-            token: code,
-            window: 2,
-          });
+      const secret = userResult.rows[0].two_factor_secret;
+      if (!secret) {
+        res.status(400).json({ error: '2FA secret not found' });
+        return;
+      }
 
-          if (!verified) {
-            res.status(401).json({ error: 'Invalid verification code' });
-            return;
-          }
-        }
+      const verified = speakeasy.totp.verify({
+        secret,
+        encoding: 'base32',
+        token: code,
+        window: 2,
+      });
+
+      if (!verified) {
+        res.status(401).json({ error: 'Invalid verification code' });
+        return;
       }
 
       await query(

@@ -46,6 +46,26 @@ function parseBigIntToNumber(value: unknown): number {
   return 0;
 }
 
+function isValidStoryMediaKey(roomId: string, mediaKey: string, mediaType: MediaType): boolean {
+  const prefix = `stories/${roomId}/`;
+  if (!mediaKey.startsWith(prefix)) return false;
+
+  const remainder = mediaKey.slice(prefix.length);
+  if (!remainder || remainder.includes('/')) return false;
+
+  const extensions = mediaType === 'image'
+    ? ['jpg', 'png', 'webp', 'gif']
+    : ['mp4', 'webm', 'mov'];
+
+  const extensionPattern = extensions.join('|');
+  const remainderPattern = new RegExp(
+    `^\\d{13}-[a-f0-9]{16}\\.(?:${extensionPattern})$`,
+    'i'
+  );
+
+  return remainderPattern.test(remainder);
+}
+
 async function bumpRoomStoriesVersion(roomId: string): Promise<number> {
   const result = await query<{ stories_version: string }>(
     `UPDATE rooms
@@ -282,8 +302,23 @@ router.post('/upload-url', async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    if (file_size === undefined || file_size === null) {
+      res.status(400).json({ error: 'file_size is required' });
+      return;
+    }
+
+    if (
+      typeof file_size !== 'number' ||
+      !Number.isFinite(file_size) ||
+      !Number.isInteger(file_size) ||
+      file_size <= 0
+    ) {
+      res.status(400).json({ error: 'file_size must be a positive integer' });
+      return;
+    }
+
     const maxSize = 50 * 1024 * 1024;
-    if (file_size && file_size > maxSize) {
+    if (file_size > maxSize) {
       res.status(400).json({ error: 'File size exceeds maximum of 50MB' });
       return;
     }
@@ -396,7 +431,12 @@ router.post('/upload-url', async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    const uploadUrl = await generateUploadUrl(mediaKey, uploadContent.contentType, 300);
+    const uploadUrl = await generateUploadUrl(
+      mediaKey,
+      uploadContent.contentType,
+      300,
+      file_size
+    );
 
     res.json({
       upload_url: uploadUrl,
@@ -434,6 +474,18 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     if (media_type !== 'image' && media_type !== 'video') {
       res.status(400).json({ error: 'media_type must be "image" or "video"' });
+      return;
+    }
+
+    if (typeof media_key !== 'string' || media_key.trim().length === 0) {
+      res.status(400).json({ error: 'media_key must be a non-empty string' });
+      return;
+    }
+
+    const mediaKeyValue = media_key.trim();
+
+    if (!isValidStoryMediaKey(room_id, mediaKeyValue, media_type as MediaType)) {
+      res.status(400).json({ error: 'Invalid media_key' });
       return;
     }
 
@@ -529,7 +581,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       `INSERT INTO stories (room_id, media_type, media_key, expires_at, creator_viewer_hash)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, room_id, media_type, media_key, created_at, expires_at`,
-      [room_id, media_type, media_key, room.expires_at, creatorViewerHash]
+      [room_id, media_type, mediaKeyValue, room.expires_at, creatorViewerHash]
     );
 
     const story = storyResult.rows[0];

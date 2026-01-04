@@ -55,7 +55,8 @@ function getS3Client(): S3Client {
 export async function generateUploadUrl(
   mediaKey: string,
   contentType: string,
-  expiresIn: number = 300
+  expiresIn: number = 300,
+  contentLength?: number
 ): Promise<string> {
   const client = getS3Client();
 
@@ -63,6 +64,7 @@ export async function generateUploadUrl(
     Bucket: config.s3BucketName,
     Key: mediaKey,
     ContentType: contentType,
+    ...(typeof contentLength === 'number' ? { ContentLength: contentLength } : {}),
   });
 
   return getSignedUrl(client, command, { expiresIn });
