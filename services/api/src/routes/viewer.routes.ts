@@ -12,6 +12,51 @@ interface JoinRequest {
 }
 
 const DEFAULT_AVATAR = '😀';
+const MAX_AVATAR_CODEPOINTS = 10;
+
+function getFirstGrapheme(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  const Segmenter = (Intl as any)?.Segmenter;
+  if (typeof Segmenter === 'function') {
+    const segmenter = new Segmenter(undefined, { granularity: 'grapheme' });
+    const iterator = segmenter.segment(trimmed)[Symbol.iterator]();
+    const first = iterator.next().value as { segment?: unknown } | undefined;
+    if (first && typeof first.segment === 'string') {
+      return first.segment;
+    }
+  }
+
+  return Array.from(trimmed)[0] ?? '';
+}
+
+function isEmojiLike(value: string): boolean {
+  if (!value) return false;
+
+  try {
+    return /\p{Emoji}/u.test(value);
+  } catch {
+    return true;
+  }
+}
+
+function normalizeAvatar(avatar?: string): string {
+  if (typeof avatar !== 'string') return DEFAULT_AVATAR;
+
+  const grapheme = getFirstGrapheme(avatar);
+  if (!grapheme) return DEFAULT_AVATAR;
+
+  if (Array.from(grapheme).length > MAX_AVATAR_CODEPOINTS) {
+    return DEFAULT_AVATAR;
+  }
+
+  if (!isEmojiLike(grapheme)) {
+    return DEFAULT_AVATAR;
+  }
+
+  return grapheme;
+}
 
 interface RoomRow {
   id: string;
@@ -67,7 +112,7 @@ router.post('/join', async (req: Request, res: Response): Promise<void> => {
 
     const codeUpper = code.toUpperCase().trim();
     const nicknameTrimmed = nickname.trim();
-    const avatarValue = avatar?.trim() || DEFAULT_AVATAR;
+    const avatarValue = normalizeAvatar(avatar);
 
     const roomResult = await query<RoomRow>(
       `SELECT id, owner_id, code, expires_at, allow_uploads, is_active, created_at

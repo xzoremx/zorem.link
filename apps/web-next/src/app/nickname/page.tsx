@@ -48,19 +48,43 @@ function NicknameForm() {
     };
 
     const handleCustomEmojiChange = (value: string) => {
-        // Only keep the last emoji character entered
-        const emojis = [...value].filter(char => {
-            const codePoint = char.codePointAt(0) || 0;
-            return codePoint > 0x1F300 || (codePoint >= 0x2600 && codePoint <= 0x27BF);
+        const trimmed = value.trim();
+        if (!trimmed) {
+            setCustomEmoji('');
+            setSelectedEmoji(DEFAULT_AVATAR);
+            return;
+        }
+
+        let lastGrapheme = '';
+        try {
+            const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+            const segments = Array.from(segmenter.segment(trimmed));
+            lastGrapheme = segments[segments.length - 1]?.segment ?? '';
+        } catch {
+            const parts = Array.from(trimmed);
+            lastGrapheme = parts[parts.length - 1] ?? '';
+        }
+
+        const codePoints = Array.from(lastGrapheme);
+        if (codePoints.length === 0 || codePoints.length > 10) {
+            return;
+        }
+
+        const looksLikeEmoji = codePoints.some((char) => {
+            const codePoint = char.codePointAt(0) ?? 0;
+            return (
+                (codePoint >= 0x1f1e6 && codePoint <= 0x1f1ff) || // Flags (regional indicators)
+                codePoint >= 0x1f300 || // Most emoji live here
+                (codePoint >= 0x2600 && codePoint <= 0x27bf) // Misc symbols
+            );
         });
 
-        if (emojis.length > 0) {
-            const lastEmoji = emojis[emojis.length - 1];
-            setCustomEmoji(lastEmoji);
-            setSelectedEmoji(lastEmoji);
-        } else {
-            setCustomEmoji(value.slice(-2)); // Allow for multi-codepoint emojis
+        if (!looksLikeEmoji) {
+            return;
         }
+
+        setCustomEmoji(lastGrapheme);
+        setSelectedEmoji(lastGrapheme);
     };
 
     const handleJoin = async (e: React.FormEvent) => {

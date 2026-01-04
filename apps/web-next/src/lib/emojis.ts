@@ -22,12 +22,15 @@ function unifiedToEmoji(unified: string): string {
 
 /**
  * Categories we want to show for avatar selection
+ * (intentionally excludes Flags/Objects for better cross-device support)
  */
 const AVATAR_CATEGORIES = [
     'Smileys & Emotion',
     'People & Body',
     'Animals & Nature',
 ];
+
+const EXCLUDED_AVATAR_CATEGORIES = ['Flags', 'Objects'];
 
 /**
  * Get base emoji list for avatar selection
@@ -36,6 +39,7 @@ const AVATAR_CATEGORIES = [
 export function getBaseEmojis(limit: number = 100): string[] {
     return (emojiData as EmojiEntry[])
         .filter(e => AVATAR_CATEGORIES.includes(e.category))
+        .filter(e => !EXCLUDED_AVATAR_CATEGORIES.includes(e.category))
         // Exclude skin tone variants (they contain 1F3F)
         .filter(e => !e.unified.includes('1F3F'))
         // Exclude component emojis
