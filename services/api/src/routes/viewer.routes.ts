@@ -12,7 +12,7 @@ interface JoinRequest {
 }
 
 const DEFAULT_AVATAR = '😀';
-const MAX_AVATAR_CODEPOINTS = 10;
+const MAX_AVATAR_CODEPOINTS = 25; // Allows complex emojis like 👨‍👩‍👧‍👦
 
 function getFirstGrapheme(value: string): string {
   const trimmed = value.trim();
@@ -34,10 +34,22 @@ function getFirstGrapheme(value: string): string {
 function isEmojiLike(value: string): boolean {
   if (!value) return false;
 
+  // Reject plain digits, # and * (they match \p{Emoji} but aren't real emojis)
+  if (/^[0-9#*]+$/.test(value)) {
+    return false;
+  }
+
   try {
-    return /\p{Emoji}/u.test(value);
+    // Check for actual emoji presentation or emoji with modifiers/ZWJ
+    // \p{Emoji_Presentation} = emojis that display as emoji by default
+    // \p{Emoji_Modifier} = skin tone modifiers
+    // \u200D = ZWJ (zero-width joiner) for composite emojis
+    // \uFE0F = emoji variation selector
+    return /[\p{Emoji_Presentation}\p{Extended_Pictographic}]|[\p{Emoji}][\u{FE0F}\u{200D}\p{Emoji_Modifier}]/u.test(value);
   } catch {
-    return true;
+    // Fallback for older environments: check if it's in common emoji ranges
+    const codePoint = value.codePointAt(0) ?? 0;
+    return codePoint >= 0x1F300 || (codePoint >= 0x2600 && codePoint <= 0x27BF);
   }
 }
 
@@ -154,6 +166,7 @@ router.post('/join', async (req: Request, res: Response): Promise<void> => {
     );
 
     if (existingSession.rows.length === 0) {
+      // New viewer - insert
       await query(
         `INSERT INTO viewer_sessions (room_id, viewer_hash, nickname, avatar)
          VALUES ($1, $2, $3, $4)
@@ -169,6 +182,12 @@ router.post('/join', async (req: Request, res: Response): Promise<void> => {
            use_count = emoji_stats.use_count + 1,
            last_used_at = NOW()`,
         [avatarValue]
+      );
+    } else {
+      // Existing viewer - update avatar if changed
+      await query(
+        `UPDATE viewer_sessions SET avatar = $1 WHERE room_id = $2 AND viewer_hash = $3`,
+        [avatarValue, room.id, viewerHash]
       );
     }
 

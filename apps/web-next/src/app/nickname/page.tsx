@@ -66,7 +66,12 @@ function NicknameForm() {
         }
 
         const codePoints = Array.from(lastGrapheme);
-        if (codePoints.length === 0 || codePoints.length > 10) {
+        if (codePoints.length === 0 || codePoints.length > 25) {
+            return;
+        }
+
+        // Reject plain digits, # and *
+        if (/^[0-9#*]+$/.test(lastGrapheme)) {
             return;
         }
 

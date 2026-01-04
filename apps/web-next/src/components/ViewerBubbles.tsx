@@ -15,19 +15,22 @@ export function ViewerBubbles({ roomId, viewers, totalCount }: ViewerBubblesProp
     const [allViewers, setAllViewers] = useState<ViewerListItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
+    const loadViewers = async () => {
+        setIsLoading(true);
+        try {
+            const result = await roomsAPI.getViewers(roomId);
+            setAllViewers(result.viewers);
+        } catch (err) {
+            console.error('Failed to load viewers:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleClick = async () => {
         setIsModalOpen(true);
-        if (allViewers.length === 0) {
-            setIsLoading(true);
-            try {
-                const result = await roomsAPI.getViewers(roomId);
-                setAllViewers(result.viewers);
-            } catch (err) {
-                console.error('Failed to load viewers:', err);
-            } finally {
-                setIsLoading(false);
-            }
-        }
+        // Always refresh when opening modal
+        loadViewers();
     };
 
     const formatTimeAgo = (isoDate: string) => {
