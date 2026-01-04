@@ -9,9 +9,10 @@ import { roomsAPI, storiesAPI, uploadToStorage, storage } from '@/lib';
 import { Button } from '@/components';
 
 const DURATION_OPTIONS = [
-    { value: '24h', label: '24 Hours', desc: '1 day' },
-    { value: '72h', label: '72 Hours', desc: '3 days' },
-    { value: '7d', label: '7 Days', desc: '1 week' },
+    { value: '1h', label: '1 Hour' },
+    { value: '3h', label: '3 Hours' },
+    { value: '6h', label: '6 Hours' },
+    { value: '12h', label: '12 Hours' },
 ];
 
 type Step = 'form' | 'upload' | 'success';
@@ -29,7 +30,7 @@ export default function CreateRoomPage() {
 
     // Form state
     const [step, setStep] = useState<Step>('form');
-    const [duration, setDuration] = useState('24h');
+    const [duration, setDuration] = useState('1h');
     const [allowUploads, setAllowUploads] = useState(true);
     const [maxUploadsPerViewer, setMaxUploadsPerViewer] = useState<number>(1);
     const [isCreating, setIsCreating] = useState(false);
@@ -216,7 +217,7 @@ export default function CreateRoomPage() {
                             {/* Duration */}
                             <div>
                                 <label className="text-sm font-medium text-white mb-3 block">Duration</label>
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="flex flex-wrap gap-2">
                                     {DURATION_OPTIONS.map((opt) => (
                                         <label key={opt.value} className="cursor-pointer">
                                             <input
@@ -227,9 +228,8 @@ export default function CreateRoomPage() {
                                                 onChange={() => setDuration(opt.value)}
                                                 className="hidden peer"
                                             />
-                                            <div className="p-4 rounded-xl border border-white/10 peer-checked:border-white/30 peer-checked:bg-white/5 text-center transition-all">
-                                                <div className="text-lg font-medium text-white">{opt.label.split(' ')[0]}</div>
-                                                <div className="text-xs text-neutral-500 mt-1">{opt.desc}</div>
+                                            <div className="px-4 py-2 rounded-full border border-white/10 peer-checked:border-violet-500 peer-checked:bg-violet-500/10 peer-checked:text-violet-300 text-sm font-medium text-neutral-400 transition-all hover:border-white/20">
+                                                {opt.label}
                                             </div>
                                         </label>
                                     ))}

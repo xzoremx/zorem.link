@@ -53,7 +53,7 @@ export interface View {
 // API Request/Response Types
 // ============================================================================
 
-export type RoomDuration = '24h' | '72h' | '7d';
+export type RoomDuration = '1h' | '3h' | '6h' | '12h' | '24h' | '72h' | '7d';
 
 export interface CreateRoomRequest {
   duration: RoomDuration;

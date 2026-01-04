@@ -28,7 +28,7 @@ interface RoomRow {
   total_likes?: string;
 }
 
-const VALID_DURATIONS: RoomDuration[] = ['24h', '72h', '7d'];
+const VALID_DURATIONS: RoomDuration[] = ['1h', '3h', '6h', '12h', '24h', '72h', '7d'];
 
 /**
  * POST /api/rooms
@@ -54,7 +54,7 @@ router.post(
 
       if (!VALID_DURATIONS.includes(duration)) {
         res.status(400).json({
-          error: 'Invalid duration. Must be one of: 24h, 72h, 7d',
+          error: 'Invalid duration. Must be one of: 1h, 3h, 6h, 12h, 24h, 72h, 7d',
         });
         return;
       }
@@ -74,6 +74,18 @@ router.post(
       const expiresAt = new Date();
 
       switch (duration) {
+        case '1h':
+          expiresAt.setHours(expiresAt.getHours() + 1);
+          break;
+        case '3h':
+          expiresAt.setHours(expiresAt.getHours() + 3);
+          break;
+        case '6h':
+          expiresAt.setHours(expiresAt.getHours() + 6);
+          break;
+        case '12h':
+          expiresAt.setHours(expiresAt.getHours() + 12);
+          break;
         case '24h':
           expiresAt.setHours(expiresAt.getHours() + 24);
           break;
