@@ -8,7 +8,10 @@ const router = express.Router();
 interface JoinRequest {
   code?: string;
   nickname?: string;
+  avatar?: string;
 }
+
+const DEFAULT_AVATAR = '😀';
 
 interface RoomRow {
   id: string;
@@ -25,6 +28,7 @@ interface SessionRow {
   room_id: string;
   viewer_hash: string;
   nickname: string;
+  avatar: string;
   created_at: Date;
   code: string;
   allow_uploads: boolean;
@@ -37,7 +41,7 @@ interface SessionRow {
  */
 router.post('/join', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { code, nickname } = req.body as JoinRequest;
+    const { code, nickname, avatar } = req.body as JoinRequest;
 
     if (!code || !nickname) {
       res.status(400).json({ error: 'Code and nickname are required' });
@@ -63,6 +67,7 @@ router.post('/join', async (req: Request, res: Response): Promise<void> => {
 
     const codeUpper = code.toUpperCase().trim();
     const nicknameTrimmed = nickname.trim();
+    const avatarValue = avatar?.trim() || DEFAULT_AVATAR;
 
     const roomResult = await query<RoomRow>(
       `SELECT id, owner_id, code, expires_at, allow_uploads, is_active, created_at
@@ -105,10 +110,20 @@ router.post('/join', async (req: Request, res: Response): Promise<void> => {
 
     if (existingSession.rows.length === 0) {
       await query(
-        `INSERT INTO viewer_sessions (room_id, viewer_hash, nickname)
-         VALUES ($1, $2, $3)
+        `INSERT INTO viewer_sessions (room_id, viewer_hash, nickname, avatar)
+         VALUES ($1, $2, $3, $4)
          RETURNING id`,
-        [room.id, viewerHash, nicknameTrimmed]
+        [room.id, viewerHash, nicknameTrimmed, avatarValue]
+      );
+
+      // Update emoji trending stats
+      await query(
+        `INSERT INTO emoji_stats (emoji, use_count, last_used_at)
+         VALUES ($1, 1, NOW())
+         ON CONFLICT (emoji) DO UPDATE SET
+           use_count = emoji_stats.use_count + 1,
+           last_used_at = NOW()`,
+        [avatarValue]
       );
     }
 
@@ -119,6 +134,7 @@ router.post('/join', async (req: Request, res: Response): Promise<void> => {
       allow_uploads: room.allow_uploads,
       expires_at: room.expires_at,
       nickname: nicknameTrimmed,
+      avatar: avatarValue,
     });
   } catch (error) {
     console.error('Error joining room:', error);
@@ -146,7 +162,7 @@ router.get('/session', async (req: Request, res: Response): Promise<void> => {
     }
 
     const sessionResult = await query<SessionRow>(
-      `SELECT vs.id, vs.room_id, vs.viewer_hash, vs.nickname, vs.created_at,
+      `SELECT vs.id, vs.room_id, vs.viewer_hash, vs.nickname, vs.avatar, vs.created_at,
               r.code, r.allow_uploads, r.is_active, r.expires_at
        FROM viewer_sessions vs
        JOIN rooms r ON vs.room_id = r.id
@@ -183,6 +199,7 @@ router.get('/session', async (req: Request, res: Response): Promise<void> => {
       room_id: session.room_id,
       room_code: session.code,
       nickname: session.nickname,
+      avatar: session.avatar || DEFAULT_AVATAR,
       allow_uploads: session.allow_uploads,
       expires_at: session.expires_at,
       created_at: session.created_at,

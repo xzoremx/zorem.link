@@ -608,7 +608,8 @@ router.post('/:storyId/view', async (req: Request, res: Response): Promise<void>
       await query(
         `INSERT INTO views (story_id, viewer_hash)
          VALUES ($1, $2)
-         ON CONFLICT (story_id, viewer_hash) DO NOTHING`,
+         ON CONFLICT (story_id, viewer_hash)
+         DO UPDATE SET created_at = NOW()`,
         [storyId, viewer_hash]
       );
 

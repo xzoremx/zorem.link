@@ -15,6 +15,7 @@ import type {
     Story,
     UploadUrlResponse,
     JoinRoomResponse,
+    ViewerListItem,
 } from '@/types';
 
 // Get API URL from environment
@@ -263,19 +264,22 @@ export const roomsAPI = {
         apiRequest(`/api/rooms/${encodeURIComponent(roomId)}`, {
             method: 'DELETE',
         }),
+
+    getViewers: (roomId: string): Promise<{ viewers: ViewerListItem[]; total: number }> =>
+        apiRequest(`/api/rooms/${encodeURIComponent(roomId)}/viewers`),
 };
 
 /**
  * Viewer API
  */
 export const viewerAPI = {
-    join: (code: string, nickname: string): Promise<JoinRoomResponse> =>
+    join: (code: string, nickname: string, avatar?: string): Promise<JoinRoomResponse> =>
         apiRequest('/api/viewer/join', {
             method: 'POST',
-            body: JSON.stringify({ code, nickname }),
+            body: JSON.stringify({ code, nickname, avatar }),
         }),
 
-    getSession: (viewerHash: string): Promise<{ room: Room; nickname: string }> =>
+    getSession: (viewerHash: string): Promise<{ room: Room; nickname: string; avatar: string }> =>
         apiRequest(`/api/viewer/session?viewer_hash=${encodeURIComponent(viewerHash)}`),
 };
 
@@ -358,6 +362,14 @@ export const storiesAPI = {
 };
 
 /**
+ * Emojis API
+ */
+export const emojisAPI = {
+    getTrending: (): Promise<{ trending: string[]; total: number; updated_at: string }> =>
+        apiRequest('/api/emojis/trending'),
+};
+
+/**
  * Upload file directly to S3/R2
  */
 export async function uploadToStorage(
@@ -388,6 +400,7 @@ export const api = {
     rooms: roomsAPI,
     viewer: viewerAPI,
     stories: storiesAPI,
+    emojis: emojisAPI,
     storage,
     uploadToStorage,
 };

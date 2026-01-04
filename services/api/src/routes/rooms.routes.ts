@@ -15,6 +15,11 @@ interface CreateRoomBody {
   max_uploads_per_viewer?: number;
 }
 
+interface ViewerInfo {
+  avatar: string;
+  nickname: string;
+}
+
 interface RoomRow {
   id: string;
   code: string;
@@ -26,6 +31,7 @@ interface RoomRow {
   story_count?: string;
   total_views?: string;
   total_likes?: string;
+  recent_viewers?: ViewerInfo[] | null;
 }
 
 const VALID_DURATIONS: RoomDuration[] = ['1h', '3h', '6h', '12h', '24h', '72h', '7d'];
@@ -324,7 +330,24 @@ router.get(
                  WHERE s.room_id = r.id) as total_views,
                 (SELECT COUNT(*) FROM story_likes sl
                  JOIN stories s ON sl.story_id = s.id
-                 WHERE s.room_id = r.id) as total_likes
+                 WHERE s.room_id = r.id) as total_likes,
+                (SELECT COALESCE(
+                  json_agg(
+                    json_build_object('avatar', COALESCE(vs2.avatar, '😀'), 'nickname', vs2.nickname)
+                    ORDER BY vs2.last_viewed_at DESC NULLS LAST, vs2.created_at DESC
+                  ),
+                  '[]'::json
+                )
+                 FROM (
+                   SELECT vs.avatar, vs.nickname, vs.created_at, MAX(v.created_at) as last_viewed_at
+                   FROM viewer_sessions vs
+                   LEFT JOIN views v ON v.viewer_hash = vs.viewer_hash
+                   WHERE vs.room_id = r.id
+                   GROUP BY vs.viewer_hash, vs.avatar, vs.nickname, vs.created_at
+                   ORDER BY MAX(v.created_at) DESC NULLS LAST, vs.created_at DESC
+                   LIMIT 5
+                 ) vs2
+                ) as recent_viewers
          FROM rooms r
          WHERE r.owner_id = $1
          ORDER BY r.expires_at DESC`,
@@ -354,6 +377,7 @@ router.get(
           story_count: parseInt(room.story_count ?? '0') || 0,
           total_views: parseInt(room.total_views ?? '0') || 0,
           total_likes: parseInt(room.total_likes ?? '0') || 0,
+          recent_viewers: room.recent_viewers || [],
           created_at: room.created_at,
         };
       });
@@ -362,6 +386,69 @@ router.get(
     } catch (error) {
       console.error('Error listing rooms:', error);
       res.status(500).json({ error: 'Failed to list rooms' });
+    }
+  }
+);
+
+/**
+ * GET /api/rooms/:roomId/viewers
+ * Returns all viewers for a room (for the room owner)
+ */
+router.get(
+  '/:roomId/viewers',
+  verifyAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { roomId } = req.params;
+      const userId = req.user?.id;
+
+      // First verify the user owns this room
+      const roomCheck = await query<{ id: string }>(
+        `SELECT id FROM rooms WHERE id = $1 AND owner_id = $2`,
+        [roomId, userId]
+      );
+
+      if (roomCheck.rows.length === 0) {
+        res.status(404).json({ error: 'Room not found or you are not the owner' });
+        return;
+      }
+
+      // Get all viewers with their join time and last view time
+      const viewersResult = await query<{
+        avatar: string | null;
+        nickname: string;
+        created_at: Date;
+        last_viewed_at: Date | null;
+        views_count: string;
+      }>(
+        `SELECT COALESCE(vs.avatar, '😀') as avatar,
+                vs.nickname,
+                vs.created_at,
+                MAX(v.created_at) as last_viewed_at,
+                COUNT(v.id) as views_count
+         FROM viewer_sessions vs
+         LEFT JOIN views v ON v.viewer_hash = vs.viewer_hash
+         WHERE vs.room_id = $1
+         GROUP BY vs.viewer_hash, vs.avatar, vs.nickname, vs.created_at
+         ORDER BY MAX(v.created_at) DESC NULLS LAST, vs.created_at DESC`,
+        [roomId]
+      );
+
+      const viewers = viewersResult.rows.map((v) => ({
+        avatar: v.avatar || '😀',
+        nickname: v.nickname,
+        joined_at: v.created_at,
+        last_viewed_at: v.last_viewed_at,
+        views_count: parseInt(v.views_count || '0', 10) || 0,
+      }));
+
+      res.json({
+        viewers,
+        total: viewers.length,
+      });
+    } catch (error) {
+      console.error('Error getting room viewers:', error);
+      res.status(500).json({ error: 'Failed to get room viewers' });
     }
   }
 );

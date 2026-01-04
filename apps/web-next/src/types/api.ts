@@ -59,6 +59,7 @@ export interface RoomListItem {
     story_count: number;
     total_views: number;
     total_likes: number;
+    recent_viewers: ViewerInfo[];
     created_at: string;
 }
 
@@ -96,10 +97,22 @@ export interface UploadUrlResponse {
 }
 
 // Viewer Types
+export interface ViewerInfo {
+    avatar: string;
+    nickname: string;
+}
+
+export interface ViewerListItem extends ViewerInfo {
+    joined_at: string;
+    last_viewed_at: string | null;
+    views_count: number;
+}
+
 export interface ViewerSession {
     viewer_hash: string;
     room_id: string;
     nickname: string;
+    avatar?: string;
 }
 
 export interface JoinRoomResponse {
@@ -109,6 +122,7 @@ export interface JoinRoomResponse {
     allow_uploads: boolean;
     expires_at: string;
     nickname: string;
+    avatar: string;
 }
 
 // API Error

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context';
 import { roomsAPI, storage } from '@/lib';
-import { Button } from '@/components';
+import { Button, ViewerBubbles } from '@/components';
 import type { RoomListItem } from '@/types';
 
 export default function MyRoomsPage() {
@@ -249,11 +249,25 @@ export default function MyRoomsPage() {
                                                             {room.code}
                                                         </div>
                                                         <div className="mt-2 text-xs text-neutral-500">
-                                                            Created: {formatDate(room.created_at)} • 
-                                                            Uploads: {room.allow_uploads ? 'on' : 'off'} • 
-                                                            Stories: {room.story_count} • 
-                                                            Viewers: {room.viewer_count}
+                                                            Created: {formatDate(room.created_at)} •
+                                                            Uploads: {room.allow_uploads ? 'on' : 'off'} •
+                                                            Stories: {room.story_count}
                                                         </div>
+                                                        <div className="mt-1 text-xs text-neutral-500">
+                                                            Viewers: {room.viewer_count} •
+                                                            Views: {room.total_views} •
+                                                            Likes: {room.total_likes}
+                                                        </div>
+                                                        {/* Viewer Bubbles */}
+                                                        {room.recent_viewers && room.recent_viewers.length > 0 && (
+                                                            <div className="mt-3">
+                                                                <ViewerBubbles
+                                                                    roomId={room.room_id}
+                                                                    viewers={room.recent_viewers}
+                                                                    totalCount={room.viewer_count}
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <button
                                                         onClick={() => openRoom(room)}
@@ -346,6 +360,16 @@ export default function MyRoomsPage() {
                                                             Views: {room.total_views} •
                                                             Likes: {room.total_likes}
                                                         </div>
+                                                        {/* Viewer Bubbles */}
+                                                        {room.recent_viewers && room.recent_viewers.length > 0 && (
+                                                            <div className="mt-3">
+                                                                <ViewerBubbles
+                                                                    roomId={room.room_id}
+                                                                    viewers={room.recent_viewers}
+                                                                    totalCount={room.viewer_count}
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>

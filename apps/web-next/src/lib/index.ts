@@ -8,5 +8,13 @@ export {
     roomsAPI,
     viewerAPI,
     storiesAPI,
+    emojisAPI,
     uploadToStorage,
 } from './api';
+export {
+    getBaseEmojis,
+    getRandomEmojis,
+    buildEmojiList,
+    BASE_EMOJI_LIST,
+    DEFAULT_AVATAR,
+} from './emojis';

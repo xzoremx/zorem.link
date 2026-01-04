@@ -1,21 +1,11 @@
 'use client';
 
-import { useState, Suspense, useRef } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { viewerAPI, storage } from '@/lib';
+import { viewerAPI, emojisAPI, storage, BASE_EMOJI_LIST, DEFAULT_AVATAR, getRandomEmojis } from '@/lib';
 import { Button, Input } from '@/components';
-
-// Popular emojis organized by category
-const EMOJI_OPTIONS = [
-    '💀', '😭', '😂', '🫣', '✨', '😊', '🤣', '🥰', 
-    '🤔', '🙄', '😆', '😃', '🤪', '🤩', '🙃', '🫠', 
-    '🥹', '😏', '😎', '🥳', '🥲', '🫡', '🙊', '🤫', 
-    '🫠', '🧐', '😮‍💨', '😤', '🤯', '😡', '😴', '🤤', 
-    '🤧', '😵‍💫', '🤢', '🥺', '🤡', '👺', '👻', '👽', 
-    '👾', '🤖', '😇', '🤠', '🥸', '🧐', '🙂‍↔️', '🙂‍↕️'
-];
 
 function NicknameForm() {
     const router = useRouter();
@@ -23,13 +13,33 @@ function NicknameForm() {
     const code = searchParams.get('code') || '';
 
     const [nickname, setNickname] = useState('');
-    const [selectedEmoji, setSelectedEmoji] = useState('😀');
+    const [selectedEmoji, setSelectedEmoji] = useState(DEFAULT_AVATAR);
     const [customEmoji, setCustomEmoji] = useState('');
     const [showCustomInput, setShowCustomInput] = useState(false);
     const [isJoining, setIsJoining] = useState(false);
     const [error, setError] = useState('');
+    const [emojiList, setEmojiList] = useState<string[]>(BASE_EMOJI_LIST);
 
     const emojiScrollRef = useRef<HTMLDivElement>(null);
+
+    // Fetch trending emojis on mount
+    useEffect(() => {
+        async function loadTrendingEmojis() {
+            try {
+                const { trending } = await emojisAPI.getTrending();
+                // Combine: trending (up to 20) + random from base list (8)
+                const randomFromBase = getRandomEmojis(8).filter(e => !trending.includes(e));
+                const combined = [...trending.slice(0, 20), ...randomFromBase];
+                // Remove duplicates
+                const unique = [...new Set(combined)];
+                setEmojiList(unique.length > 0 ? unique : BASE_EMOJI_LIST);
+            } catch {
+                // Fallback to base list
+                setEmojiList(BASE_EMOJI_LIST);
+            }
+        }
+        loadTrendingEmojis();
+    }, []);
 
     const handleEmojiSelect = (emoji: string) => {
         setSelectedEmoji(emoji);
@@ -70,17 +80,14 @@ function NicknameForm() {
         setError('');
 
         try {
-            // For now, we'll combine emoji + nickname or just use nickname
-            // Backend can be updated later to store avatar separately
             const displayName = nickname.trim();
 
-            const result = await viewerAPI.join(code, displayName);
+            const result = await viewerAPI.join(code, displayName, selectedEmoji);
 
-            // Store emoji in localStorage for display purposes
             storage.setViewerHash(result.viewer_hash);
             storage.setRoomId(result.room_id);
             storage.setRoomCode(result.room_code);
-            localStorage.setItem('viewer_avatar', selectedEmoji);
+            localStorage.setItem('viewer_avatar', result.avatar || selectedEmoji);
 
             router.push('/room');
         } catch (err) {
@@ -176,7 +183,7 @@ function NicknameForm() {
                             className="flex gap-2 overflow-x-auto scrollbar-hide px-8 py-2 scroll-smooth"
                             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                         >
-                            {EMOJI_OPTIONS.map((emoji) => (
+                            {emojiList.map((emoji) => (
                                 <button
                                     key={emoji}
                                     type="button"
