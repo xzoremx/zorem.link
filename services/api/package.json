@@ -11,6 +11,7 @@
     "generate-secret": "tsx scripts/generate-secret.js"
   },
   "dependencies": {
+    "@zorem/shared": "*",
     "@aws-sdk/client-s3": "^3.490.0",
     "@aws-sdk/s3-request-presigner": "^3.490.0",
     "bcrypt": "^5.1.1",

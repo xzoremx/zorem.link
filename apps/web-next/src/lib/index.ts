@@ -11,10 +11,4 @@ export {
     emojisAPI,
     uploadToStorage,
 } from './api';
-export {
-    CURATED_EMOJIS,
-    getRandomEmojis,
-    buildEmojiList,
-    BASE_EMOJI_LIST,
-    DEFAULT_AVATAR,
-} from './emojis';
+export { CURATED_EMOJIS, DEFAULT_AVATAR } from './emojis';
