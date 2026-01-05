@@ -12,7 +12,7 @@ export {
     uploadToStorage,
 } from './api';
 export {
-    getBaseEmojis,
+    CURATED_EMOJIS,
     getRandomEmojis,
     buildEmojiList,
     BASE_EMOJI_LIST,
