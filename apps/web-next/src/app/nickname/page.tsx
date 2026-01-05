@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { viewerAPI, emojisAPI, storage, BASE_EMOJI_LIST, DEFAULT_AVATAR, getRandomEmojis } from '@/lib';
+import { viewerAPI, emojisAPI, storage, CURATED_EMOJIS, DEFAULT_AVATAR } from '@/lib';
 import { Button, Input } from '@/components';
 
 function NicknameForm() {
@@ -18,7 +18,7 @@ function NicknameForm() {
     const [showCustomInput, setShowCustomInput] = useState(false);
     const [isJoining, setIsJoining] = useState(false);
     const [error, setError] = useState('');
-    const [emojiList, setEmojiList] = useState<string[]>(BASE_EMOJI_LIST);
+    const [emojiList, setEmojiList] = useState<string[]>(CURATED_EMOJIS.slice(0, 28));
 
     const emojiScrollRef = useRef<HTMLDivElement>(null);
 
@@ -27,15 +27,16 @@ function NicknameForm() {
         async function loadTrendingEmojis() {
             try {
                 const { trending } = await emojisAPI.getTrending();
-                // Combine: trending (up to 20) + random from base list (8)
-                const randomFromBase = getRandomEmojis(8).filter(e => !trending.includes(e));
-                const combined = [...trending.slice(0, 20), ...randomFromBase];
-                // Remove duplicates
-                const unique = [...new Set(combined)];
-                setEmojiList(unique.length > 0 ? unique : BASE_EMOJI_LIST);
+                // Get 4 random from curated (excluding trending)
+                const available = CURATED_EMOJIS.filter(e => !trending.includes(e));
+                const shuffled = [...available].sort(() => Math.random() - 0.5);
+                const random4 = shuffled.slice(0, 4);
+                // Combine: 24 trending + 4 random = 28
+                const combined = [...trending.slice(0, 24), ...random4];
+                setEmojiList(combined);
             } catch {
-                // Fallback to base list
-                setEmojiList(BASE_EMOJI_LIST);
+                // Fallback to curated list
+                setEmojiList(CURATED_EMOJIS.slice(0, 28));
             }
         }
         loadTrendingEmojis();
