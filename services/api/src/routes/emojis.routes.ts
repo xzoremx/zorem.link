@@ -23,12 +23,12 @@ router.get('/trending', async (_req: Request, res: Response): Promise<void> => {
       []
     );
 
-    let trending = result.rows.map(row => row.emoji);
+    let trending = result.rows.map((row) => row.emoji);
 
     // If we have less than 24 trending emojis, fill with curated
     if (trending.length < 24) {
       const missing = 24 - trending.length;
-      const fillers = CURATED_EMOJIS.filter(e => !trending.includes(e)).slice(0, missing);
+      const fillers = CURATED_EMOJIS.filter((emoji: string) => !trending.includes(emoji)).slice(0, missing);
       trending = [...trending, ...fillers];
     }
 

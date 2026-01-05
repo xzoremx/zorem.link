@@ -4,10 +4,10 @@
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "dev": "npm --prefix ../../packages/shared run build && tsx watch src/server.ts",
+    "build": "npm --prefix ../../packages/shared run build && tsc",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "npm --prefix ../../packages/shared run build && tsc --noEmit",
     "generate-secret": "tsx scripts/generate-secret.js"
   },
   "dependencies": {
