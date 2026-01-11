@@ -73,8 +73,9 @@ export default function CreateRoomPage() {
                 link: `${baseUrl}/nickname?code=${result.code}`,
             });
 
-            // Save room ID
+            // Save room ID and code for navigation
             storage.setRoomId(result.room_id);
+            storage.setRoomCode(result.code);
 
             // Move to upload step
             setStep('upload');
