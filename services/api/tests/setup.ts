@@ -4,11 +4,44 @@
  */
 
 import { beforeAll, afterAll, beforeEach } from 'vitest';
-import { pool } from '../src/db/pool.js';
+import type { Pool } from 'pg';
+
+let pool: Pool;
+
+function getDatabaseName(databaseUrl: string): string | null {
+  try {
+    const url = new URL(databaseUrl);
+    const dbName = url.pathname.replace(/^\/+/, '');
+    return dbName || null;
+  } catch {
+    return null;
+  }
+}
+
+function assertSafeTestDatabase(databaseUrl: string): void {
+  const databaseName = getDatabaseName(databaseUrl);
+  if (!databaseName) {
+    throw new Error('Refusing to run tests: unable to parse database name from DATABASE_URL.');
+  }
+
+  if (!/test/i.test(databaseName)) {
+    throw new Error(
+      `Refusing to run tests against non-test database "${databaseName}". ` +
+        'Set DATABASE_URL to a dedicated test database (e.g. zorem_test).'
+    );
+  }
+}
 
 beforeAll(async () => {
+  // Ensure the service treats tests as non-production
+  process.env.NODE_ENV ||= 'test';
+
+  const db = await import('../src/db/pool.js');
+  pool = db.pool as Pool;
+
   // Verify connection to test database
   try {
+    assertSafeTestDatabase(process.env.DATABASE_URL ?? '');
     await pool.query('SELECT 1');
     console.log('✓ Test database connected');
   } catch (error) {

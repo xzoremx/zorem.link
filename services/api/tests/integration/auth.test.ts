@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
-import { app } from '../../src/server.js';
+import { app } from '../../src/app.js';
 import { createUser } from '../helpers/factories.js';
 import { generateToken, authHeader } from '../helpers/auth.js';
 import { faker } from '@faker-js/faker';
@@ -22,7 +22,8 @@ describe('POST /api/auth/sign-up', () => {
     expect(res.body.user).toBeDefined();
     expect(res.body.user.email).toBe(email.toLowerCase());
     expect(res.body.user.id).toBeDefined();
-    expect(res.body.message).toContain('verification email');
+    expect(res.body.requires_verification).toBe(true);
+    expect(res.body.verification_link).toBeDefined();
   });
 
   it('normalizes email to lowercase', async () => {
@@ -46,7 +47,7 @@ describe('POST /api/auth/sign-up', () => {
       .send({ email, password: 'SecurePass123!' });
 
     expect(res.status).toBe(409);
-    expect(res.body.error).toContain('already registered');
+    expect(res.body.error).toContain('already exists');
   });
 
   it('rejects weak password (too short)', async () => {
@@ -66,7 +67,7 @@ describe('POST /api/auth/sign-up', () => {
       .send({ email: 'not-an-email', password: 'SecurePass123!' });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('valid email');
+    expect(res.body.error).toContain('Invalid email');
   });
 
   it('rejects missing email', async () => {
@@ -227,7 +228,9 @@ describe('POST /api/auth/request-magic-link', () => {
       .send({ email: user.email });
 
     expect(res.status).toBe(200);
-    expect(res.body.message).toContain('Check your email');
+    expect(res.body.message).toContain('Magic link generated');
+    expect(res.body.magic_link).toBeDefined();
+    expect(res.body.token).toBeDefined();
   });
 
   it('returns success even for non-existent email (security)', async () => {
@@ -237,7 +240,9 @@ describe('POST /api/auth/request-magic-link', () => {
 
     // Should return 200 to prevent email enumeration
     expect(res.status).toBe(200);
-    expect(res.body.message).toContain('Check your email');
+    expect(res.body.message).toContain('Magic link generated');
+    expect(res.body.magic_link).toBeDefined();
+    expect(res.body.token).toBeDefined();
   });
 
   it('rejects invalid email format', async () => {
@@ -246,7 +251,7 @@ describe('POST /api/auth/request-magic-link', () => {
       .send({ email: 'not-an-email' });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('valid email');
+    expect(res.body.error).toContain('Invalid email');
   });
 
   it('rejects missing email', async () => {

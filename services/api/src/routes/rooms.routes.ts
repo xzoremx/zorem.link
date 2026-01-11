@@ -164,7 +164,7 @@ router.get('/:code', async (req: Request, res: Response): Promise<void> => {
     const { code } = req.params;
 
     if (!validateCodeFormat(code)) {
-      res.status(400).json({ valid: false, error: 'Invalid code format' });
+      res.status(400).json({ error: 'Invalid code format' });
       return;
     }
 
@@ -178,18 +178,18 @@ router.get('/:code', async (req: Request, res: Response): Promise<void> => {
     );
 
     if (roomResult.rows.length === 0) {
-      res.json({ valid: false, error: 'Room not found' });
+      res.status(404).json({ error: 'Room not found' });
       return;
     }
 
     const room = roomResult.rows[0];
     if (!room) {
-      res.json({ valid: false, error: 'Room not found' });
+      res.status(404).json({ error: 'Room not found' });
       return;
     }
 
     if (!room.is_active) {
-      res.json({ valid: false, error: 'Room is not active' });
+      res.status(410).json({ error: 'Room is not active' });
       return;
     }
 
@@ -197,12 +197,11 @@ router.get('/:code', async (req: Request, res: Response): Promise<void> => {
     const expiresAt = new Date(room.expires_at);
 
     if (expiresAt < now) {
-      res.json({ valid: false, error: 'Room has expired' });
+      res.status(410).json({ error: 'Room has expired' });
       return;
     }
 
     res.json({
-      valid: true,
       room_id: room.id,
       code: room.code,
       expires_at: room.expires_at,
@@ -210,7 +209,7 @@ router.get('/:code', async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error) {
     console.error('Error validating room code:', error);
-    res.status(500).json({ valid: false, error: 'Failed to validate room code' });
+    res.status(500).json({ error: 'Failed to validate room code' });
   }
 });
 

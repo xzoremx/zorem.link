@@ -18,7 +18,7 @@ interface TokenPayload {
  */
 export function generateToken(userId: string, expiresIn = '1h'): string {
   const payload: TokenPayload = { userId };
-  return jwt.sign(payload, config.JWT_SECRET, { expiresIn });
+  return jwt.sign(payload, config.jwtSecret, { expiresIn });
 }
 
 /**
@@ -26,14 +26,14 @@ export function generateToken(userId: string, expiresIn = '1h'): string {
  */
 export function generateExpiredToken(userId: string): string {
   const payload: TokenPayload = { userId };
-  return jwt.sign(payload, config.JWT_SECRET, { expiresIn: '0s' });
+  return jwt.sign(payload, config.jwtSecret, { expiresIn: '0s' });
 }
 
 /**
  * Generate a JWT token with custom payload (for testing edge cases)
  */
 export function generateCustomToken(payload: Record<string, unknown>, expiresIn = '1h'): string {
-  return jwt.sign(payload, config.JWT_SECRET, { expiresIn });
+  return jwt.sign(payload, config.jwtSecret, { expiresIn });
 }
 
 /**
@@ -41,7 +41,7 @@ export function generateCustomToken(payload: Record<string, unknown>, expiresIn 
  */
 export function generate2FAToken(userId: string): string {
   const payload = { userId, type: '2fa_pending' };
-  return jwt.sign(payload, config.JWT_SECRET, { expiresIn: '5m' });
+  return jwt.sign(payload, config.jwtSecret, { expiresIn: '5m' });
 }
 
 /**

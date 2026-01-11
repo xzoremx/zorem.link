@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import { app } from '../../src/server.js';
+import { app } from '../../src/app.js';
 import { createUser, createRoom, createStory, createViewerSession } from '../helpers/factories.js';
 import { generateToken, authHeader } from '../helpers/auth.js';
 

@@ -44,6 +44,10 @@ JWT_SECRET=any-secret-key-for-tests
 NODE_ENV=test
 ```
 
+Notes:
+- When running `npm test` / `vitest`, the API loads `.env.test` automatically (and does **not** auto-load `.env`).
+- Tests refuse to run unless the database name in `DATABASE_URL` contains `test` (e.g. `zorem_test`).
+
 ### 4. Run Migrations
 
 Apply database migrations to the test database:
@@ -123,7 +127,7 @@ Test complete HTTP endpoints with real database.
 **Example:**
 ```typescript
 import request from 'supertest';
-import { app } from '@/server';
+import { app } from '@/app.js';
 
 it('creates a new room', async () => {
   const res = await request(app)
@@ -144,7 +148,7 @@ it('creates a new room', async () => {
 Easily create test data:
 
 ```typescript
-import { createUser, createRoom, createStory } from './helpers/factories';
+import { createUser, createRoom, createStory } from './helpers/factories.js';
 
 const user = await createUser({ email: 'test@example.com' });
 const room = await createRoom(user.id, { code: 'TEST99' });
@@ -156,7 +160,7 @@ const story = await createStory(room.id);
 Generate tokens for authenticated requests:
 
 ```typescript
-import { generateToken, authHeader } from './helpers/auth';
+import { generateToken, authHeader } from './helpers/auth.js';
 
 const token = generateToken(user.id);
 
@@ -257,9 +261,9 @@ describe('myFunction', () => {
 // tests/integration/myroute.test.ts
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import { app } from '@/server';
-import { createUser } from '../helpers/factories';
-import { generateToken, authHeader } from '../helpers/auth';
+import { app } from '@/app.js';
+import { createUser } from '../helpers/factories.js';
+import { generateToken, authHeader } from '../helpers/auth.js';
 
 describe('POST /api/myroute', () => {
   it('works correctly', async () => {

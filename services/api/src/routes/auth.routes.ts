@@ -99,7 +99,7 @@ router.post(
       const token = generateToken(userId);
       const magicLink = `${config.frontendUrl}/auth?token=${token}`;
 
-      if (config.nodeEnv === 'development') {
+      if (config.nodeEnv !== 'production') {
         res.json({
           message: 'Magic link generated (development mode)',
           magic_link: magicLink,
@@ -273,7 +273,7 @@ router.post('/sign-up', async (req: Request, res: Response): Promise<void> => {
 
     const verificationLink = `${config.frontendUrl}/auth?verify=${verificationToken}`;
 
-    if (config.nodeEnv === 'development') {
+    if (config.nodeEnv !== 'production') {
       res.status(201).json({
         message: 'Account created successfully',
         requires_verification: true,

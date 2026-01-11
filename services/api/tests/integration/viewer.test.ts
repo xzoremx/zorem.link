@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import { app } from '../../src/server.js';
+import { app } from '../../src/app.js';
 import { createUser, createRoom } from '../helpers/factories.js';
 import { faker } from '@faker-js/faker';
 
@@ -78,7 +78,7 @@ describe('POST /api/viewer/join', () => {
     const res = await request(app)
       .post('/api/viewer/join')
       .send({
-        code: 'INVALID',
+        code: 'NOEXST',
         nickname: 'TestViewer',
       });
 
@@ -113,7 +113,7 @@ describe('POST /api/viewer/join', () => {
       .send({ code: 'TEST99' });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('Nickname');
+    expect(res.body.error).toContain('nickname');
   });
 
   it('rejects empty nickname', async () => {

@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import { app } from '../../src/server.js';
+import { app } from '../../src/app.js';
 import {
   createUser,
   createRoom,
@@ -119,7 +119,7 @@ describe('GET /api/stories/room/:roomId', () => {
     expect(res.body.stories).toEqual([]);
   });
 
-  it('orders stories by creation time (newest first)', async () => {
+  it('orders stories by creation time (oldest first)', async () => {
     const user = await createUser();
     const room = await createRoom(user.id);
 
@@ -133,9 +133,9 @@ describe('GET /api/stories/room/:roomId', () => {
     const res = await request(app).get(`/api/stories/room/${room.id}`);
 
     expect(res.status).toBe(200);
-    // Newest should be first
-    expect(res.body.stories[0].id).toBe(story3.id);
-    expect(res.body.stories[2].id).toBe(story1.id);
+    // Oldest should be first
+    expect(res.body.stories[0].id).toBe(story1.id);
+    expect(res.body.stories[2].id).toBe(story3.id);
   });
 });
 

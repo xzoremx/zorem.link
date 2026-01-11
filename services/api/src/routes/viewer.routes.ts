@@ -145,7 +145,7 @@ router.post('/join', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (!room.is_active) {
-      res.status(403).json({ error: 'Room is not active' });
+      res.status(410).json({ error: 'Room is not active' });
       return;
     }
 
@@ -153,7 +153,7 @@ router.post('/join', async (req: Request, res: Response): Promise<void> => {
     const expiresAt = new Date(room.expires_at);
 
     if (expiresAt < now) {
-      res.status(403).json({ error: 'Room has expired' });
+      res.status(410).json({ error: 'Room has expired' });
       return;
     }
 
@@ -246,7 +246,7 @@ router.get('/session', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (!session.is_active) {
-      res.status(403).json({ error: 'Room is no longer active' });
+      res.status(410).json({ error: 'Room is no longer active' });
       return;
     }
 
@@ -254,7 +254,7 @@ router.get('/session', async (req: Request, res: Response): Promise<void> => {
     const expiresAt = new Date(session.expires_at);
 
     if (expiresAt < now) {
-      res.status(403).json({ error: 'Room has expired' });
+      res.status(410).json({ error: 'Room has expired' });
       return;
     }
 
@@ -267,6 +267,12 @@ router.get('/session', async (req: Request, res: Response): Promise<void> => {
       allow_uploads: session.allow_uploads,
       expires_at: session.expires_at,
       created_at: session.created_at,
+      room: {
+        id: session.room_id,
+        code: session.code,
+        allow_uploads: session.allow_uploads,
+        expires_at: session.expires_at,
+      },
     });
   } catch (error) {
     console.error('Error getting session:', error);

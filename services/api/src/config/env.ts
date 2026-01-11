@@ -1,7 +1,34 @@
 import dotenv from 'dotenv';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { AppConfig } from '../types/index.js';
 
-dotenv.config();
+function isTestRun(): boolean {
+  if (process.env.NODE_ENV === 'test') return true;
+  if (process.env.VITEST && process.env.VITEST !== '0') return true;
+  const lifecycle = process.env.npm_lifecycle_event;
+  if (typeof lifecycle === 'string' && lifecycle.startsWith('test')) return true;
+  if (process.argv.some((arg) => arg.toLowerCase().includes('vitest'))) return true;
+  return false;
+}
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const serviceRoot = path.resolve(__dirname, '../../');
+
+const testRun = isTestRun();
+const envPath = path.join(serviceRoot, '.env');
+const envTestPath = path.join(serviceRoot, '.env.test');
+
+if (testRun) {
+  // Important: never auto-load ".env" for tests (it may point to prod/staging)
+  if (fs.existsSync(envTestPath)) {
+    dotenv.config({ path: envTestPath });
+  }
+} else {
+  dotenv.config({ path: envPath });
+}
 
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'] as const;
 
@@ -27,7 +54,7 @@ const corsOrigin = trimTrailingSlash(process.env.CORS_ORIGIN) || frontendUrl;
 export const config: AppConfig = {
   // Server
   port: parseInt(process.env.PORT || '3000', 10),
-  nodeEnv: process.env.NODE_ENV || 'development',
+  nodeEnv: process.env.NODE_ENV || (testRun ? 'test' : 'development'),
 
   // Database
   databaseUrl: process.env.DATABASE_URL!,
