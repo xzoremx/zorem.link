@@ -10,7 +10,7 @@ build/
 
 # Test_UI
 
-src/app/ui_test
+src/app/ui_test/
 
 # Misc
 .DS_Store
