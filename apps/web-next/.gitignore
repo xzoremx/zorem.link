@@ -8,6 +8,10 @@ out/
 # Production
 build/
 
+# Test_UI
+
+src/app/ui_test
+
 # Misc
 .DS_Store
 *.pem

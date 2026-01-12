@@ -13,6 +13,10 @@ build/
 **/dist/
 **/build/
 
+# Test_UI
+
+apps/web-next/src/app/ui_test
+
 # TypeScript cache
 *.tsbuildinfo
 
